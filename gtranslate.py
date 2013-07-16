@@ -82,7 +82,7 @@ def test():
     word = u"""Everything was almost perfect?\nEverything fell into place."""
     sl = 'en'
     print bad_translate(word, sl, iterations=1)
-    
+# Test test test
     
 if __name__ == '__main__':
     test()
