@@ -84,5 +84,7 @@ def test():
     print bad_translate(word, sl, iterations=1)
 
 # I added this stuff in another branch
+
+# Done, merging the branch back
 if __name__ == '__main__':
     test()
