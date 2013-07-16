@@ -79,7 +79,7 @@ def bad_translate(word, sl='ru', iterations=20, iter_sleep=0.3,
     return new_word
 
 def test():
-    word = u"""Everything was almost perfect?\nEverything fell into place."""
+    word = u"""Everything was almost perfect?\nEverything fell into place. And another line here"""
     sl = 'en'
     print bad_translate(word, sl, iterations=1)
 
