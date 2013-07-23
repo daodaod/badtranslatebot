@@ -45,7 +45,9 @@ def translate(word, tl, sl=None, timeout=30):
     fixed_json = re.sub(r',{2,}', (lambda m:'null'.join(m.group(0))), result)
     fixed_json = fixed_json.replace(',]', ']')  
     data = json.loads(fixed_json, encoding='utf-8')
-    result =u' '.join(trans[0].decode('utf-8') for trans in data[4])
+    parts_list = [trans[0] for trans in data[4]]
+    result = u' '.join((part if isinstance(part, unicode) else part.decode('utf-8')) 
+                           for part in parts_list)
     # Remove whitespace before punctuation
     result = re.sub(u'\s+([,\.!?\-\(\)\+\=\*])',r'\1', result, flags=re.UNICODE)
     result = re.sub(u'^\s+', '', result, flags=re.MULTILINE+re.UNICODE)
