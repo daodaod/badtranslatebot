@@ -328,6 +328,8 @@ if __name__ == '__main__':
     finally:
         if bot.connected:
             bot.disconnect()
+        pool.stop()
+        pool.join()
     print "Shutting down"
         
         
