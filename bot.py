@@ -330,6 +330,7 @@ if __name__ == '__main__':
             bot.disconnect()
         pool.stop()
         pool.join()
+        
     print "Shutting down"
         
         
