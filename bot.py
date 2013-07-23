@@ -286,7 +286,6 @@ class TranslatorBot(PersistentJabberBot):
                 text = self.should_reply(text, my_nickname)
                 if not text:
                     return
-        print "Translating", text
         task = TranslationTask(text, lambda result, m=message:self.locked_send_simple_reply(m, result))
         try:
             self.thread_pool.add_task(task)
