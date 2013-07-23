@@ -7,3 +7,7 @@ resource = jabber_bot
    [[conf1]]
    jid = example@conference.jabber.org
    nickname = badtranslatebot
+    
+[badtranslate]
+translation_threads = 4
+translation_queue_limit = 4

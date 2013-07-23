@@ -40,7 +40,7 @@ class PoolWorker(StoppableThread):
                     task.execute()
                 except Exception:
                     if self.exception_handler is not None:
-                        self.exception_handler(sys.exc_info())
+                        self.exception_handler(*sys.exc_info())
                     
 class TaskPool(object):
     def __init__(self, workers_num, max_task_num, exception_handler=None):

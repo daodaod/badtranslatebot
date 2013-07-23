@@ -3,8 +3,11 @@
 
 import jabberbot
 import xmpp
+import threading
 import logging
 import time
+from inspect import Traceback
+# TODO: Split on modules
 
 # TODO: Do something with this
 logger = logging.getLogger('jabberbot')
@@ -212,14 +215,50 @@ class PersistentJabberBot(jabberbot.JabberBot):
         for conf_jid, conf in self.conferences.iteritems():
             conf.last_activity = 0
 
+# TODO: Migrate to own module
+import random
+import threadpool
+import gtranslate
+import re
+class TranslationTask(threadpool.Task):
+    def __init__(self, text, result_callback):
+        self.text = text
+        self.result_callback = result_callback
+        super(TranslationTask, self).__init__()
+        
+    def execute(self):
+        translation = gtranslate.bad_translate(self.text, iterations=20)
+        self.result_callback(translation)
     
 class TranslatorBot(PersistentJabberBot):
-    def __init__(self, username, password, res=None, debug=False, 
+    def __init__(self, username, password, thread_pool, res=None, debug=False, 
         privatedomain=False, acceptownmsgs=False, command_prefix=''):
+        self.thread_pool = thread_pool
+        self.send_lock = threading.Lock()
         super(TranslatorBot, self).__init__(
                 username, password, res=res, debug=debug, 
                 privatedomain=privatedomain, acceptownmsgs=acceptownmsgs,
                 command_prefix=command_prefix)
+        
+    def locked_send_simple_reply(self, *args, **kwargs):
+        with self.send_lock:
+            self.send_simple_reply(*args, **kwargs)
+            
+    def should_reply(self, text, my_nickname):
+        if not my_nickname.lower() in text.lower():
+            if random.randrange(0,300)<10:
+                return text
+            return None
+        # TODO: Fix this crappy regex (easy)
+        for prep_sep in [u',', u'\\.',u'\\?',u'!']:
+            text = re.sub(prep_sep + my_nickname, '', text, flags=re.I+re.U)
+
+        for post_sep in [u'\\:', u',', u' ', u'\\.']:
+            text = re.sub(my_nickname + post_sep, '', text, flags=re.I+re.U)
+        return text.strip()
+
+    def preprocess_text(self, text):
+        return text.strip().replace('?', '.')
         
     def callback_message(self, conn, message):
         assert isinstance(message, xmpp.Message)
@@ -234,18 +273,23 @@ class TranslatorBot(PersistentJabberBot):
         jid = message.getFrom()
         sender_nickname = jid.getResource()
         type_ = message.getType()
-        print self.jid, jid
         if self.jid.bareMatch(jid):
             return
+        text = self.preprocess_text(text)
         if type_ == 'groupchat':
             conf = self.conferences.get(jid.getStripped())
             if conf is not None:
-                if conf.get_nickname() == sender_nickname:
+                my_nickname = conf.get_nickname()
+                if my_nickname == sender_nickname:
                     return
-        import gtranslate
-        text = gtranslate.bad_translate(text, iterations=20)
-        self.send_simple_reply(message, text)
-                
+                text = self.should_reply(text, my_nickname)
+                if not text:
+                    return
+        
+        print "Translating", text
+        task = TranslationTask(text, lambda result, m=message:self.locked_send_simple_reply(m, result))
+        self.thread_pool.add_task(task)
+     
         
 if __name__ == '__main__':
     import configobj
@@ -253,7 +297,13 @@ if __name__ == '__main__':
     login = config['jabber_account']['jid']
     password = config['jabber_account']['password']
     resource = config['jabber_account']['resource']
-    bot = TranslatorBot(login, password, resource)
+    
+    # TODO: Fix this mess
+    import traceback
+    pool = threadpool.TaskPool(workers_num=int(config['badtranslate']['translation_threads']),
+                               max_task_num=int(config['badtranslate']['translation_queue_limit']),
+                               exception_handler=traceback.print_exception)
+    bot = TranslatorBot(login, password, pool, res=resource)
     for name, conf in config['conferences'].iteritems():
         bot.add_conference(conf['jid'], conf['nickname'], conf.get('password'))    
     
