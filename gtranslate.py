@@ -37,7 +37,7 @@ def translate(word, tl, sl=None, timeout=30):
                       'tl': tl.encode('utf-8')}  
     if sl is not None:
         list_of_params.update(sl = sl.encode('utf-8'))
-    request = urllib2.Request(url + urllib.urlencode(list_of_params),
+    request = urllib2.Request(url, data=urllib.urlencode(list_of_params),
                               headers=HEADERS)
     result = urllib2.urlopen(request, timeout=timeout).read()
     # Replace ,,,, sequences with ,null,null,null,null, because that's 
@@ -79,9 +79,9 @@ def bad_translate(word, sl='ru', iterations=20, iter_sleep=0.3,
     return new_word
 
 def test():
-    word = u"""Everything was almost perfect?\nEverything fell into place. And another line here"""
+    word = u"""Everything was almost perfect?\nEverything into place. And another line here"""
     sl = 'en'
-    print bad_translate(word, sl, iterations=1)
+    print bad_translate(word, sl, iterations=3)
 
 # I added this stuff in another branch
 
