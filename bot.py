@@ -7,6 +7,7 @@ import threading
 import logging
 import time
 from inspect import Traceback
+import Queue
 # TODO: Split on modules
 
 # TODO: Do something with this
@@ -285,10 +286,13 @@ class TranslatorBot(PersistentJabberBot):
                 text = self.should_reply(text, my_nickname)
                 if not text:
                     return
-        
         print "Translating", text
         task = TranslationTask(text, lambda result, m=message:self.locked_send_simple_reply(m, result))
-        self.thread_pool.add_task(task)
+        try:
+            self.thread_pool.add_task(task)
+        except Queue.Full:
+            # Maybe send an excuse?
+            pass
      
         
 if __name__ == '__main__':
@@ -306,21 +310,25 @@ if __name__ == '__main__':
     bot = TranslatorBot(login, password, pool, res=resource)
     for name, conf in config['conferences'].iteritems():
         bot.add_conference(conf['jid'], conf['nickname'], conf.get('password'))    
-    
-    while True:
-        result = None
-        if bot.connected:
-            result = bot.process(1)
-        if result is None:
-            print "Result is None!"
+    try:
+        while True:
+            result = None
             if bot.connected:
-                bot.disconnect()
-            bot.on_disconnect()
-            bot.conn = None
-            bot.connect()
-            if not bot.connected:
-                continue
-        bot.idle_proc()
+                result = bot.process(1)
+            if result is None:
+                print "Result is None!"
+                if bot.connected:
+                    bot.disconnect()
+                bot.on_disconnect()
+                bot.conn = None
+                bot.connect()
+                if not bot.connected:
+                    continue
+            bot.idle_proc()
+    finally:
+        if bot.connected:
+            bot.disconnect()
+    print "Shutting down"
         
         
         
