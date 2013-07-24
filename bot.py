@@ -221,6 +221,7 @@ import random
 import threadpool
 import gtranslate
 import re
+import string
 class TranslationTask(threadpool.Task):
     def __init__(self, text, result_callback):
         self.text = text
@@ -246,17 +247,20 @@ class TranslatorBot(PersistentJabberBot):
             self.send_simple_reply(*args, **kwargs)
             
     def should_reply(self, text, my_nickname):
-        if not my_nickname.lower() in text.lower():
+        text_parts = re.split(r'(\w+)', text, flags=re.UNICODE)
+        my_nickname_lower = my_nickname.lower()
+        nick_present = False
+        print text_parts
+        for i, part in enumerate(text_parts):
+            if part.lower() == my_nickname_lower:
+                nick_present = True
+                text_parts[i-1] = text_parts[i+1] = u''
+                text_parts[i] = u' '
+        if not nick_present:
             if random.randrange(0,300)<10:
                 return text
             return None
-        # TODO: Fix this crappy regex (easy)
-        for prep_sep in [u',', u'\\.',u'\\?',u'!']:
-            text = re.sub(prep_sep + my_nickname, '', text, flags=re.I+re.U)
-
-        for post_sep in [u'\\:', u',', u' ', u'\\.']:
-            text = re.sub(my_nickname + post_sep, '', text, flags=re.I+re.U)
-        return text.strip()
+        return u''.join(text_parts)
 
     def preprocess_text(self, text):
         return text.strip().replace('?', '.')
