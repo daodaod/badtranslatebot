@@ -116,7 +116,7 @@ if __name__ == '__main__':
                 print "Exception happened within serve_forever!"
                 traceback.print_exc()
     finally:
-        print "Shutting down"
+        print "Shutting down. Good bye."
         if bot.connected:
             bot.disconnect()
         pool.stop()

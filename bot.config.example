@@ -3,8 +3,8 @@ jid = user@server
 password = my_passwod
 resource = jabber_bot
 
-[conferences]
-   [[conf1]]
+[rooms]
+   [[room1]]
    jid = example@conference.jabber.org
    nickname = badtranslatebot
     
