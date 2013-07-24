@@ -43,11 +43,12 @@ class PoolWorker(StoppableThread):
                         self.exception_handler(*sys.exc_info())
                     
 class TaskPool(object):
-    def __init__(self, workers_num, max_task_num, exception_handler=None):
+    def __init__(self, workers_num, max_task_num, daemon_threads=True, exception_handler=None):
         super(TaskPool, self).__init__()
         self.task_queue = Queue.Queue(maxsize=max_task_num)
         self.exception_handler = exception_handler
         self.workers = [PoolWorker(self.task_queue, self.exception_handler) for _ in xrange(workers_num)]
+        [worker.setDaemon(daemon_threads) for worker in self.workers]
         [worker.start() for worker in self.workers]
         
     def add_task(self, task):
@@ -64,7 +65,7 @@ class TaskPool(object):
             
             
 if __name__ == '__main__':
-    pool = TaskPool(workers_num=5, max_task_num=5)
+    pool = TaskPool(workers_num=5, max_task_num=5, daemon_threads=True)
     import time
     class SleepTask(Task):
         def __init__(self, to_sleep, message):
