@@ -79,50 +79,6 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
             to_jid = reply_mess.getTo()
             to_jid.setResource(None)
             self.send_message(reply_mess)
-            
-    '''    
-    def callback_message(self, conn, message):
-        assert isinstance(message, xmpp.Message)
-        # TODO: Add history logging
-        if xmpp.NS_DELAY in message.getProperties():
-            return
-        if message.getSubject() is not None:
-            return
-        if message.getError() is not None:
-            return
-        text = message.getBody()
-        if text is None or not text.strip():
-            return
-        jid = message.getFrom()
-        sender_nickname = jid.getResource()
-        type_ = message.getType()
-        if self.jid.bareMatch(jid):
-            return
-        if type_ == 'groupchat':
-            text = self.preprocess_text(text)
-            conf = self.rooms.get(jid.getStripped())
-            if conf is not None:
-                my_nickname = conf.real_nickname
-                if my_nickname == sender_nickname:
-                    return
-                text = self.should_reply(text, my_nickname)
-                if not text:
-                    return
-        elif type_ =='chat':
-            # TODO: This is temp. workaround
-            message.setType('groupchat')
-            jid.setResource(None)
-            message.setFrom(jid)
-            self.send_simple_reply(message, text, private=False)
-            return
-        task = TranslationTask(text, (lambda result, m=message, private=(message.getType()=='chat'):
-                                    self.locked_send_simple_reply(m, result, private)))
-        try:
-            self.thread_pool.add_task(task)
-        except Queue.Full:
-            # Maybe send an excuse?
-            pass
-    '''
      
         
 if __name__ == '__main__':
