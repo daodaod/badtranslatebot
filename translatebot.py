@@ -52,6 +52,35 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
     def preprocess_text(self, text):
         return text.strip().replace('?', '.')
         
+    def process_text_message(self, mess):
+        super(TranslatorBot, self).process_text_message(mess)
+        assert isinstance(mess, xmpp.Message)
+        from_ = mess.getFrom()
+        text = mess.getBody()
+        if mess.getSubject() is not None:
+            return
+        if self.is_my_jid(from_):
+            return
+        if mess.getType() == 'groupchat':
+            my_nickname = self.get_my_room_nickname(from_.getStripped())
+            text = self.preprocess_text(text)
+            text = self.should_reply(text, my_nickname)
+            if not text:
+                return
+            task = TranslationTask(text, (lambda result, m=mess:self.locked_send_simple_reply(m, result)))
+            try:
+                self.thread_pool.add_task(task)
+            except Queue.Full:
+                # TODO: Maybe send an excuse?
+                pass
+        elif mess.getType() == 'chat':
+            reply_mess = mess.buildReply(text)
+            reply_mess.setType('groupchat')
+            to_jid = reply_mess.getTo()
+            to_jid.setResource(None)
+            self.send_message(reply_mess)
+            
+    '''    
     def callback_message(self, conn, message):
         assert isinstance(message, xmpp.Message)
         # TODO: Add history logging
@@ -69,8 +98,8 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
         type_ = message.getType()
         if self.jid.bareMatch(jid):
             return
-        text = self.preprocess_text(text)
         if type_ == 'groupchat':
+            text = self.preprocess_text(text)
             conf = self.rooms.get(jid.getStripped())
             if conf is not None:
                 my_nickname = conf.real_nickname
@@ -93,7 +122,7 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
         except Queue.Full:
             # Maybe send an excuse?
             pass
-        
+    '''
      
         
 if __name__ == '__main__':

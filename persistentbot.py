@@ -34,21 +34,61 @@ class PersistentJabberBot(jabberbot.JabberBot):
         else:
             if xmpp.NS_MUC_USER in presence.getProperties():
                 self.process_room_presence(presence)
+        # TODO: Get rid of this super call
         super(PersistentJabberBot, self).callback_presence(conn, presence)
         
+    def callback_message(self, conn, mess):
+        assert isinstance(mess, xmpp.Message)
+        
+        self.process_message(mess)
+        if mess.getError() is not None:
+            self.process_message_error(mess)
+        elif xmpp.NS_DELAY in mess.getProperties():
+            self.process_delayed_message(mess)
+        elif mess.getBody():
+            self.process_text_message(mess)
+            
+    def is_my_jid(self, jid):
+        ''' Determines, if that jid is our jid. It could be just our jabber login,
+        or our jid in some conference.'''
+        if self.jid.bareMatch(jid):
+            return True
+        elif jid.getResource() == self.get_my_room_nickname(jid.getStripped()):
+            if jid.getResource():
+                return True
+        return False
+    
+    def get_my_room_nickname(self, room_jid):
+        ''' Returns our nickname in that room, or None, if there isn't such.'''
+        room = self.rooms.get(room_jid)
+        if room is not None:
+            return room.real_nickname
+            
     def callback_iq(self, conn, iq):
         # TODO: Add some pretty iq response
         pass
-        
-    def process_error_presence(self, presence):
-        jid = presence.getFrom()
-        room_jid = jid.getStripped()
-        if room_jid not in self.rooms:
-            return
-        room = self.get_room(room_jid)
-        room.change_temporary_nick()
-        room.last_activity = 0
-                
+    
+    def process_message(self, mess):
+        ''' This routine handles all messages, received by bot.'''
+        pass
+    
+    def process_message_error(self, mess):
+        ''' This routine handles all message stanzas with error tag set.'''
+        pass
+    
+    def process_delayed_message(self, mess):
+        ''' This routine handles delayed messages. Those are usually sent as history,
+        when bot enters the room.'''
+        pass
+    
+    def process_text_message(self, mess):
+        ''' This routine handles all messages with body tag.'''
+        pass
+    
+    def process_presence(self, presence):
+        ''' This routine handles all presence stanzas'''
+        pass
+    
     def process_room_presence(self, presence):
         assert isinstance(presence, xmpp.Presence)
         jid = presence.getFrom()
@@ -74,7 +114,17 @@ class PersistentJabberBot(jabberbot.JabberBot):
                 room.del_user(room_nick)
             else:
                 room.add_user(room_nick, None)
-                
+
+        
+    def process_presence_error(self, presence):
+        jid = presence.getFrom()
+        room_jid = jid.getStripped()
+        if room_jid not in self.rooms:
+            return
+        room = self.get_room(room_jid)
+        room.change_temporary_nick()
+        room.last_activity = 0
+                                
     def build_room_presence(self, room, username, password=None, type_=None):
         if username is None:
             username = self.jid.getNode()
