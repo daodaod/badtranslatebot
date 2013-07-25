@@ -35,6 +35,8 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
             self.send_simple_reply(*args, **kwargs)
             
     def should_reply(self, text, my_nickname):
+        ''' This routine checks, if bot's nickname is in the text, and if it is, replaces
+        it with space.'''
         text_parts = re.split(r'(\w+)', text, flags=re.UNICODE)
         my_nickname_lower = my_nickname.lower()
         nick_present = False
@@ -97,6 +99,7 @@ if __name__ == '__main__':
     
     # TODO: Fix this mess
     import traceback
+    import time
     pool = threadpool.TaskPool(workers_num=int(config['badtranslate']['translation_threads']),
                                max_task_num=int(config['badtranslate']['translation_queue_limit']),
                                exception_handler=traceback.print_exception)
@@ -110,6 +113,7 @@ if __name__ == '__main__':
             except Exception, ex:
                 print "Exception happened within serve_forever!"
                 traceback.print_exc()
+        time.sleep(1) # Let us not rape the server
     finally:
         print "Shutting down. Good bye."
         if bot.connected:
