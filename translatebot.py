@@ -17,7 +17,7 @@ class TranslationTask(threadpool.Task):
         super(TranslationTask, self).__init__()
         
     def execute(self):
-        translation = self.text #gtranslate.bad_translate(self.text, iterations=20)
+        translation = gtranslate.bad_translate(self.text, iterations=20)
         self.result_callback(translation)
     
 class TranslatorBot(persistentbot.PersistentJabberBot):
