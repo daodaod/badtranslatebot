@@ -67,8 +67,6 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
         type_ = message.getType()
         if self.jid.bareMatch(jid):
             return
-        print "Got message"
-        print message.__str__(True)
         text = self.preprocess_text(text)
         if type_ == 'groupchat':
             conf = self.rooms.get(jid.getStripped())
