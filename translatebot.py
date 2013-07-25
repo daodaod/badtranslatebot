@@ -59,6 +59,8 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
             return
         if message.getSubject() is not None:
             return
+        if message.getError() is not None:
+            return
         text = message.getBody()
         if text is None or not text.strip():
             return
@@ -78,7 +80,7 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
                 if not text:
                     return
         elif type_ =='chat':
-            # Temp. workaround
+            # TODO: This is temp. workaround
             message.setType('groupchat')
             jid.setResource(None)
             message.setFrom(jid)
