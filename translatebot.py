@@ -17,7 +17,7 @@ class TranslationTask(threadpool.Task):
         super(TranslationTask, self).__init__()
         
     def execute(self):
-        translation = gtranslate.bad_translate(self.text, iterations=20)
+        translation = self.text #gtranslate.bad_translate(self.text, iterations=20)
         self.result_callback(translation)
     
 class TranslatorBot(persistentbot.PersistentJabberBot):
@@ -67,6 +67,8 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
         type_ = message.getType()
         if self.jid.bareMatch(jid):
             return
+        print "Got message"
+        print message.__str__(True)
         text = self.preprocess_text(text)
         if type_ == 'groupchat':
             conf = self.rooms.get(jid.getStripped())
@@ -77,7 +79,15 @@ class TranslatorBot(persistentbot.PersistentJabberBot):
                 text = self.should_reply(text, my_nickname)
                 if not text:
                     return
-        task = TranslationTask(text, lambda result, m=message:self.locked_send_simple_reply(m, result))
+        elif type_ =='chat':
+            # Temp. workaround
+            message.setType('groupchat')
+            jid.setResource(None)
+            message.setFrom(jid)
+            self.send_simple_reply(message, text, private=False)
+            return
+        task = TranslationTask(text, (lambda result, m=message, private=(message.getType()=='chat'):
+                                    self.locked_send_simple_reply(m, result, private)))
         try:
             self.thread_pool.add_task(task)
         except Queue.Full:
