@@ -100,7 +100,7 @@ if __name__ == '__main__':
     # TODO: Fix this mess
     import traceback
     import time
-    import plugins
+    import plugins.chatlogplugin
     pool = threadpool.TaskPool(workers_num=int(config['badtranslate']['translation_threads']),
                                max_task_num=int(config['badtranslate']['translation_queue_limit']),
                                exception_handler=traceback.print_exception)
