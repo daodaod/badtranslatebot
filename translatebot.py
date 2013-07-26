@@ -100,10 +100,13 @@ if __name__ == '__main__':
     # TODO: Fix this mess
     import traceback
     import time
+    import plugins
     pool = threadpool.TaskPool(workers_num=int(config['badtranslate']['translation_threads']),
                                max_task_num=int(config['badtranslate']['translation_queue_limit']),
                                exception_handler=traceback.print_exception)
     bot = TranslatorBot(login, password, pool, res=resource)
+    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin('../chatlogs')
+    bot.register_plugin(chatlog_plugin)
     for name, conf in config['rooms'].iteritems():
         bot.add_room(conf['jid'], conf['nickname'], conf.get('password'))    
     try:

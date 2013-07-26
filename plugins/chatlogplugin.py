@@ -116,7 +116,6 @@ class ChatlogPlugin(plugins.JabberPlugin):
     
     @plugins.register_plugin_method
     def process_message(self, message):
-        from_ = message.getFrom().__str__()
         if message.getError() is not None:
             self.process_error(message)
         if self.is_stanza_from_nowhere(message):
