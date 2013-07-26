@@ -19,7 +19,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
         
         self.stopped = False
         self.rooms = {}
-        self.plugins = {} # method name -> [list of plugins]
+        self.method_plugins = {} # method name -> [list of plugins]
         handlers = [('message', self.callback_message),
                     ('presence', self.callback_presence),
                     ('iq', self.callback_iq)]
@@ -117,22 +117,22 @@ class PersistentJabberBot(jabberbot.JabberBot):
         room.last_activity = 0
         
     def handle_plugins(self, methodname, *args, **kwargs):
-        for plugin in self.plugins.get(methodname, []):
+        for plugin in self.method_plugins.get(methodname, []):
             func = getattr(plugin, methodname)
             func(*args, **kwargs)
             
     def register_plugin(self, plugin):
         for methodname in plugin.get_registered_methods_names():
-            plugins_list = self.plugins.setdefault(methodname, [])
+            plugins_list = self.method_plugins.setdefault(methodname, [])
             if plugin not in plugins_list:
                 plugins_list.append(plugin)
                 
     def unregister_plugin(self, plugin):
         for methodname in plugin.get_registered_methods_names():
-            plugins_list = self.plugins[methodname]
+            plugins_list = self.method_plugins[methodname]
             plugins_list.remove(plugin)
             if not plugins_list:
-                self.plugins.pop(methodname)
+                self.method_plugins.pop(methodname)
         
     def is_my_jid(self, jid):
         ''' Determines, if that jid is our jid. It could be just our jabber login,
@@ -269,7 +269,7 @@ if __name__ == '__main__':
     password = config['jabber_account']['password']
     resource = config['jabber_account']['resource']
     
-    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin()
+    chatlog_plugin = method_plugins.chatlogplugin.ChatlogPlugin()
     
     bot = PersistentJabberBot(login, password, res=resource)
     bot.register_plugin(chatlog_plugin)

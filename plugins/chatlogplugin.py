@@ -4,7 +4,7 @@
 import plugins
 
 
-class ChatlogPlugin(plugins.JabberPlugin):
+class ChatlogPlugin(method_plugins.JabberPlugin):
     @plugins.register_plugin_method
     def process_message(self, message):
         print "Logging message!"
