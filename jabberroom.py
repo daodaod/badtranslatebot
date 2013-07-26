@@ -63,7 +63,7 @@ class JabberRoom(object):
         self.users[new_nick] = old_user
         
     def __str__(self):
-        return "<Jabber conference %s/%s %r"%(self.room_jid, self.real_nickname, self.users.keys())
+        return "<Jabber conference %s/%s %r"%(self.room_jid, self.real_nickname, self.users)
     
     __repr__ = __str__
     

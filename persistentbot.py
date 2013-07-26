@@ -76,28 +76,37 @@ class PersistentJabberBot(jabberbot.JabberBot):
         assert isinstance(presence, xmpp.Presence)
         jid = presence.getFrom()
         assert isinstance(jid, xmpp.JID)
+        print presence.__str__(True)
+        pres_jid = presence.getJid()
+        pres_aff = presence.getAffiliation()
+        pres_rol = presence.getRole()
+        pres_sho = presence.getShow()
+        user_info = [pres_jid, pres_aff, pres_rol, pres_sho]
         current_time = time.time()
         room_jid = jid.getStripped()
         room_nick = jid.getResource()
         room = self.get_room(room_jid)
+        
+        # Manage participants list
+        if presence.getNick() is not None and presence.getStatusCode()=='303':
+            room.change_user_nick(user_info, room_nick, presence.getNick())
+        elif presence.getType() == 'unavailable':
+            room.del_user(room_nick)
+        else:
+            room.add_user(room_nick, user_info)
+        print room
+        # Manage bot enter/left events
         is_self_presence = (presence.getStatusCode() == '110')
         if room.real_nickname and room.real_nickname == room_nick:
             is_self_presence = True
-        if is_self_presence: 
-            room.real_nickname = room_nick
-            if presence.getType() == 'unavailable':
-                room.last_activity = 0
-            else:
-                room.last_activity = current_time
+        if not is_self_presence:
+            return
+        room.real_nickname = room_nick
+        if presence.getType() == 'unavailable':
+            room.real_nickname = None
+            room.last_activity = 0
         else:
             room.last_activity = current_time
-            if presence.getNick() is not None and presence.getStatusCode()=='303':
-                room.change_user_nick(None, room_nick, presence.getNick())
-            elif presence.getType() == 'unavailable':
-                room.del_user(room_nick)
-            else:
-                room.add_user(room_nick, None)
-
         
     def process_presence_error(self, presence):
         jid = presence.getFrom()
