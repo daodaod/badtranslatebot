@@ -19,7 +19,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
         
         self.stopped = False
         self.rooms = {}
-        
+        self.plugins = {} # method name -> [list of plugins]
         handlers = [('message', self.callback_message),
                     ('presence', self.callback_presence),
                     ('iq', self.callback_iq)]
@@ -55,7 +55,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
     
     def process_message(self, message):
         ''' This routine handles all messages, received by bot.'''
-        pass
+        self.handle_plugins(self.process_message.__name__, message)
     
     def process_message_error(self, message):
         ''' This routine handles all message stanzas with error tag set.'''
@@ -72,7 +72,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
     
     def process_presence(self, presence):
         ''' This routine handles all presence stanzas'''
-        pass
+        self.handle_plugins(self.process_presence.__name__, presence)
     
     def process_room_presence(self, presence):
         assert isinstance(presence, xmpp.Presence)
@@ -115,6 +115,24 @@ class PersistentJabberBot(jabberbot.JabberBot):
         room = self.get_room(room_jid)
         room.change_temporary_nick()
         room.last_activity = 0
+        
+    def handle_plugins(self, methodname, *args, **kwargs):
+        for plugin in self.plugins.get(methodname, []):
+            func = getattr(plugin, methodname)
+            func(*args, **kwargs)
+            
+    def register_plugin(self, plugin):
+        for methodname in plugin.get_registered_methods_names():
+            plugins_list = self.plugins.setdefault(methodname, [])
+            if plugin not in plugins_list:
+                plugins_list.append(plugin)
+                
+    def unregister_plugin(self, plugin):
+        for methodname in plugin.get_registered_methods_names():
+            plugins_list = self.plugins[methodname]
+            plugins_list.remove(plugin)
+            if not plugins_list:
+                self.plugins.pop(methodname)
         
     def is_my_jid(self, jid):
         ''' Determines, if that jid is our jid. It could be just our jabber login,
@@ -245,13 +263,16 @@ class PersistentJabberBot(jabberbot.JabberBot):
 if __name__ == '__main__':
     import configobj
     import traceback
+    import plugins.chatlogplugin
     config = configobj.ConfigObj('bot.config')
     login = config['jabber_account']['jid']
     password = config['jabber_account']['password']
     resource = config['jabber_account']['resource']
     
+    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin()
+    
     bot = PersistentJabberBot(login, password, res=resource)
-
+    bot.register_plugin(chatlog_plugin)
     for name, room in config['rooms'].iteritems():
         bot.add_room(room['jid'], room['nickname'], room.get('password'))    
 
