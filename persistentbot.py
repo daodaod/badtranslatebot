@@ -269,7 +269,7 @@ if __name__ == '__main__':
     password = config['jabber_account']['password']
     resource = config['jabber_account']['resource']
     
-    chatlog_plugin = method_plugins.chatlogplugin.ChatlogPlugin()
+    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin('../chatlogs')
     
     bot = PersistentJabberBot(login, password, res=resource)
     bot.register_plugin(chatlog_plugin)
