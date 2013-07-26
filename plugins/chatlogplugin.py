@@ -56,7 +56,7 @@ def convert_timestamp(timestamp):
     mm = timestamp[4:6]
     dd = timestamp[6:8]
     tm = timestamp.partition('T')[-1]
-    return '%s/%s/%s %s'%(yyyy, mm, dd, tm)
+    return u'%s/%s/%s %s'%(yyyy, mm, dd, tm)
     
 
 class ChatlogPlugin(plugins.JabberPlugin):
@@ -81,8 +81,8 @@ class ChatlogPlugin(plugins.JabberPlugin):
         text = html_escape(message.getBody())
         subject = html_escape(message.getSubject())
         nick = html_escape(message.getFrom().getResource())
-        color = SAFE_COLORS[int(hashlib.sha256(nick).hexdigest()[:6], 16) % len(SAFE_COLORS)]
-        message_template = '''<div class="message" style="color: {text_color}"><font color="#{color}"><font size="2">({timestamp})</font> <b>{nick}:</b></font> <span class="message_text">{text}</span></div>'''
+        color = SAFE_COLORS[int(hashlib.sha256(nick.encode('utf-8')).hexdigest()[:6], 16) % len(SAFE_COLORS)]
+        message_template = u'''<div class="message" style="color: {text_color}"><font color="#{color}"><font size="2">({timestamp})</font> <b>{nick}:</b></font> <span class="message_text">{text}</span></div>'''
         timestamp = convert_timestamp(message.getTimestamp())
         if subject:
             text += '''<div class="subject"><strong>Subject was changed to: %s</strong></div>''' % subject
