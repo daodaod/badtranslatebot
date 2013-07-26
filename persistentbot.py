@@ -29,6 +29,8 @@ class PersistentJabberBot(jabberbot.JabberBot):
                          handlers=handlers, command_prefix=command_prefix)
                 
     def callback_presence(self, conn, presence):
+        assert isinstance(presence, xmpp.Presence)
+        self.process_presence(presence)
         if presence.getType() == 'error':
             self.process_error_presence(presence)
         else:
@@ -37,34 +39,34 @@ class PersistentJabberBot(jabberbot.JabberBot):
         # TODO: Get rid of this super call
         super(PersistentJabberBot, self).callback_presence(conn, presence)
         
-    def callback_message(self, conn, mess):
-        assert isinstance(mess, xmpp.Message)
-        self.process_message(mess)
-        if mess.getError() is not None:
-            self.process_message_error(mess)
-        elif xmpp.NS_DELAY in mess.getProperties():
-            self.process_delayed_message(mess)
-        elif mess.getBody():
-            self.process_text_message(mess)
+    def callback_message(self, conn, message):
+        assert isinstance(message, xmpp.Message)
+        self.process_message(message)
+        if message.getError() is not None:
+            self.process_message_error(message)
+        elif xmpp.NS_DELAY in message.getProperties():
+            self.process_delayed_message(message)
+        elif message.getBody():
+            self.process_text_message(message)
             
     def callback_iq(self, conn, iq):
         # TODO: Add some pretty iq response
         pass
     
-    def process_message(self, mess):
+    def process_message(self, message):
         ''' This routine handles all messages, received by bot.'''
         pass
     
-    def process_message_error(self, mess):
+    def process_message_error(self, message):
         ''' This routine handles all message stanzas with error tag set.'''
         pass
     
-    def process_delayed_message(self, mess):
+    def process_delayed_message(self, message):
         ''' This routine handles delayed messages. Those are usually sent as history,
         when bot enters the room.'''
         pass
     
-    def process_text_message(self, mess):
+    def process_text_message(self, message):
         ''' This routine handles all messages with body tag.'''
         pass
     
@@ -174,8 +176,8 @@ class PersistentJabberBot(jabberbot.JabberBot):
             room.last_checked = current_time
             self.join_room(room_jid, room.temporary_nickname, room.password)
             
-    def send_message(self, mess):
-        return self.send_stanza(mess)
+    def send_message(self, message):
+        return self.send_stanza(message)
     
     def send_stanza(self, stanza):
         conn = self.conn
