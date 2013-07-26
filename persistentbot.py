@@ -76,7 +76,6 @@ class PersistentJabberBot(jabberbot.JabberBot):
         assert isinstance(presence, xmpp.Presence)
         jid = presence.getFrom()
         assert isinstance(jid, xmpp.JID)
-        print presence.__str__(True)
         pres_jid = presence.getJid()
         pres_aff = presence.getAffiliation()
         pres_rol = presence.getRole()
@@ -86,7 +85,6 @@ class PersistentJabberBot(jabberbot.JabberBot):
         room_jid = jid.getStripped()
         room_nick = jid.getResource()
         room = self.get_room(room_jid)
-        
         # Manage participants list
         if presence.getNick() is not None and presence.getStatusCode()=='303':
             room.change_user_nick(user_info, room_nick, presence.getNick())
@@ -94,7 +92,6 @@ class PersistentJabberBot(jabberbot.JabberBot):
             room.del_user(room_nick)
         else:
             room.add_user(room_nick, user_info)
-        print room
         # Manage bot enter/left events
         is_self_presence = (presence.getStatusCode() == '110')
         if room.real_nickname and room.real_nickname == room_nick:
