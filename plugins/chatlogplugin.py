@@ -37,7 +37,7 @@ def get_message_sender_folder(message):
     return str(message.getFrom())
 
 def get_safe_filename(s):
-    s = urllib2.quote(s)
+    s = urllib2.quote(s, safe='')
     #keepcharacters = (' ','.','_', '@')
     #s = s.replace('/', '!')
     #s = "".join(c for c in s if c.isalnum() or c in keepcharacters).rstrip()
