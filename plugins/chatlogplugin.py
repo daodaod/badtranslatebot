@@ -12,6 +12,9 @@ import urllib2
 
 MAX_FILENAME_LEN = 200
 
+# http://xmpp.org/extensions/xep-0085.html
+CHAT_STATES = ['active', 'composing', 'paused', 'inactive', 'gone']
+
 SAFE_COLORS = ['*000*', '300', '600', '900', 'C00', '*F00*', '*003*', '303', '603', '903',
                 'C03', '*F03*', '006', '306', '606', '906', 'C06', 'F06', '009', '309', '609',
                 '909', 'C09', 'F09', '00C', '30C', '60C', '90C', 'C0C', 'F0C', '*00F*', '30F',
@@ -85,7 +88,9 @@ class ChatlogPlugin(plugins.JabberPlugin):
         subject = html_escape(message.getSubject())
         nick = html_escape(message.getFrom().getResource())
         color = SAFE_COLORS[int(hashlib.sha256(nick.encode('utf-8')).hexdigest()[:6], 16) % len(SAFE_COLORS)]
-        message_template = u'''<div class="message" style="color: {text_color}"><font color="#{color}"><font size="2">({timestamp})</font> <b>{nick}:</b></font> <span class="message_text">{text}</span></div>'''
+        message_template = (u'''<div class="message" style="color: {text_color}"><font color="#{color}">'''
+                            '''<font size="2">({timestamp})</font> <b>{nick}:</b></font> '''
+                            '''<span class="message_text">{text}</span>{chat_state}</div>''')
         timestamp = convert_timestamp(message.getTimestamp())
         if subject:
             text += '''<div class="subject"><strong>Subject was changed to: %s</strong></div>''' % subject
@@ -93,8 +98,16 @@ class ChatlogPlugin(plugins.JabberPlugin):
             text_color = 'grey'
         else:
             text_color = 'black'
+        chat_state = []
+        for state in CHAT_STATES:
+            if message.getTag(state):
+                chat_state.append(state)
+        if text or not chat_state:
+            chat_state = ''
+        else:
+            chat_state = '<font style="color:green">Conversation state: <span class="chat_state">'+','.join(chat_state)+'</span></font>'
         f.write(message_template.format(color=color, timestamp=timestamp, nick=nick, text=text,
-                                        text_color=text_color).encode('utf-8'))
+                                        text_color=text_color, chat_state=chat_state).encode('utf-8'))
         
     def write_presence(self, f, presence, bot_instance):
         assert isinstance(presence, xmpp.Presence)
