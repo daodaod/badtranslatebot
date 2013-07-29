@@ -51,13 +51,15 @@ def html_escape(s):
     return cgi.escape(s).replace(' ', '&nbsp;').replace('\n', '<br />')
 
 def convert_timestamp(timestamp):
+    time_now = time.strftime('%H:%M:%S')
     if not timestamp:
-        return time.strftime('%H:%M:%S')
+        return time_now
     yyyy = timestamp[:4]
     mm = timestamp[4:6]
     dd = timestamp[6:8]
     tm = timestamp.partition('T')[-1]
-    return u'%s/%s/%s %s'%(yyyy, mm, dd, tm)
+    
+    return u'%s %s/%s/%s %s'%(time_now, yyyy, mm, dd, tm)
     
 
 class ChatlogPlugin(plugins.JabberPlugin):
@@ -67,6 +69,15 @@ class ChatlogPlugin(plugins.JabberPlugin):
         self.folder = folder
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
+        self._bot_instance = None
+        
+    def _get_bot_instance(self):
+        return self._bot_instance
+    
+    def _set_bot_instance(self, bot_instance):
+        self._bot_instance = bot_instance
+        
+    bot_instance = property(_get_bot_instance, _set_bot_instance)
             
     def get_current_filename(self, subfolder):
         return os.path.join(subfolder, time.strftime('%Y_%m_%d.html'))
@@ -99,8 +110,42 @@ class ChatlogPlugin(plugins.JabberPlugin):
         if self.is_bad_stanza(presence): 
             self.write_error(f, presence)
             return
-        print presence.getStatus()
-        
+        conference = presence.getFrom().getStripped()
+        nick = presence.getFrom().getResource()
+        msg_html = ['<strong>', html_escape(nick), '</strong>']
+        jid = html_escape(presence.getJid())
+        if jid:
+            msg_html.extend((' (<span style="color: grey">', jid, '</span>)'))
+        msg_html.append(' ')
+        if presence.getType() == 'unavailable':
+            new_nick = html_escape(presence.getNick())
+            if new_nick:
+                msg_html.extend((' has changed nick to <strong>', new_nick, '</strong>'))
+            else:
+                msg_html.append('has left')
+        else:
+            if self.bot_instance.get_room_user(conference, nick) is not None:
+                msg_html.append('has changed status')
+            else:
+                msg_html.append('has joined the room')
+        reason = html_escape(presence.getReason())
+        if reason:
+            msg_html.extend(('. Reason: <span class="reason">', reason, '</span>'))
+        msg_html.append('.')
+        msg_html = u''.join(msg_html)
+        affiliation = presence.getAffiliation()
+        role = presence.getRole()
+        show = presence.getShow()
+        status = presence.getStatus()
+        msg_info = []
+        for name, item in (('Affiliation', affiliation), ('Role', role), ('Show', show), ('Status', status)):
+            if item is not None:
+                msg_info.extend((name, ': <span class="',name,'">&quot;', html_escape(item), '&quot;</span> '))
+        msg_info = u''.join(msg_info)
+        timestamp = convert_timestamp(presence.getTimestamp())
+        presence_template = u'''<div class="presence"></div><font size="2">({timestamp})</font> {msg_html} {msg_info}</div>'''
+        f.write(presence_template.format(timestamp=timestamp, msg_html=msg_html, msg_info=msg_info))
+
         
     def roll_file(self, subfolder=None):
         if subfolder is not None:

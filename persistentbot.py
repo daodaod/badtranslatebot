@@ -123,12 +123,14 @@ class PersistentJabberBot(jabberbot.JabberBot):
             func(*args, **kwargs)
             
     def register_plugin(self, plugin):
+        plugin.bot_instance = self
         for methodname in plugin.get_registered_methods_names():
             plugins_list = self.method_plugins.setdefault(methodname, [])
             if plugin not in plugins_list:
                 plugins_list.append(plugin)
                 
     def unregister_plugin(self, plugin):
+        plugin.bot_instance = None
         for methodname in plugin.get_registered_methods_names():
             plugins_list = self.method_plugins[methodname]
             plugins_list.remove(plugin)
@@ -150,6 +152,12 @@ class PersistentJabberBot(jabberbot.JabberBot):
         room = self.rooms.get(room_jid)
         if room is not None:
             return room.real_nickname
+        
+    def get_room_user(self, room_jid, nickname):
+        room = self.rooms.get(room_jid)
+        if room is None:
+            return None
+        return room.users.get(nickname)
                                 
     def build_room_presence(self, room, username, password=None, type_=None):
         if username is None:
