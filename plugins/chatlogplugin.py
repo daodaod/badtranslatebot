@@ -148,6 +148,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
         msg_info = u''.join(msg_info)
         timestamp = convert_timestamp(presence.getTimestamp())
         presence_template = u'''<div class="presence"></div><font size="2">({timestamp})</font> {msg_html} {msg_info}</div>'''
+        print [msg_html, msg_info]
         f.write(presence_template.format(timestamp=timestamp, msg_html=msg_html, msg_info=msg_info))
 
         
