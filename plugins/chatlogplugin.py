@@ -11,6 +11,7 @@ import urllib2
 
 
 MAX_FILENAME_LEN = 200
+# TODO: Fix those freaking colors!
 # Taken from http://super-productive.com/178
 SAFE_COLORS = [
               '0000FF','FF0000','F0F8FF','FAEBD7','00FFFF','7FFFD4','F0FFFF','F5F5DC','FFE4C4','000000',
@@ -95,10 +96,10 @@ class ChatlogPlugin(plugins.JabberPlugin):
         
     def write_presence(self, f, presence):
         assert isinstance(presence, xmpp.Presence)
-        if self.is_bad_stanza(presence) or True: # Stub
+        if self.is_bad_stanza(presence): 
             self.write_error(f, presence)
             return
-        
+        print presence.getStatus()
         
         
     def roll_file(self, subfolder=None):
@@ -155,4 +156,3 @@ class ChatlogPlugin(plugins.JabberPlugin):
         
 if __name__ == '__main__':
     plugin = ChatlogPlugin('test')
-    print plugin.get_current_filename()

@@ -79,10 +79,11 @@ class PersistentJabberBot(jabberbot.JabberBot):
         jid = presence.getFrom()
         assert isinstance(jid, xmpp.JID)
         pres_jid = presence.getJid()
-        pres_aff = presence.getAffiliation()
-        pres_rol = presence.getRole()
-        pres_sho = presence.getShow()
-        user_info = [pres_jid, pres_aff, pres_rol, pres_sho]
+        pres_affiliation = presence.getAffiliation()
+        pres_role = presence.getRole()
+        pres_show = presence.getShow()
+        pres_status = presence.getStatus()
+        user_info = [pres_jid, pres_affiliation, pres_role, pres_show, pres_status]
         current_time = time.time()
         room_jid = jid.getStripped()
         room_nick = jid.getResource()
