@@ -120,17 +120,18 @@ class PersistentJabberBot(jabberbot.JabberBot):
     def handle_plugins(self, methodname, *args, **kwargs):
         for plugin in self.method_plugins.get(methodname, []):
             func = getattr(plugin, methodname)
+            kwargs['bot_instance'] = self
             func(*args, **kwargs)
             
     def register_plugin(self, plugin):
-        plugin.bot_instance = self
+        plugin.add_bot_instance(self)
         for methodname in plugin.get_registered_methods_names():
             plugins_list = self.method_plugins.setdefault(methodname, [])
             if plugin not in plugins_list:
                 plugins_list.append(plugin)
                 
     def unregister_plugin(self, plugin):
-        plugin.bot_instance = None
+        plugin.remove_bot_instance(self)
         for methodname in plugin.get_registered_methods_names():
             plugins_list = self.method_plugins[methodname]
             plugins_list.remove(plugin)

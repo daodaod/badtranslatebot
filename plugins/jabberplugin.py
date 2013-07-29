@@ -6,6 +6,9 @@ import inspect
 PLUGIN_METHOD_ATTR = '_plugin_method'
 
 def register_plugin_method(fn):
+    ''' Methods decorated will be called from `handle_plugins` of persistentbot.
+    Note, that those methods will receive bot_instance parameter referencing to
+    PersistentBot instance.'''
     setattr(fn, PLUGIN_METHOD_ATTR, True)
     return fn
 
@@ -25,7 +28,7 @@ class JabberPlugin(object):
 if __name__ == '__main__':
     class TestPlugin(JabberPlugin):
         @register_plugin_method
-        def process_message(self, mess):
+        def process_message(self, mess, bot_instance):
             print mess
             
     t = TestPlugin()
