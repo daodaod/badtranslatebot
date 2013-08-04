@@ -30,28 +30,28 @@ def translate(word, tl, sl=None, timeout=30):
     Result: unicode string
     """
     url = "http://translate.google.com/translate_a/t?"
-    list_of_params = {'client': 't', 
+    list_of_params = {'client': 't',
                       'hl': 'en',
                       'multires': '0',
                       'text': word.encode('utf-8'),
-                      'tl': tl.encode('utf-8')}  
+                      'tl': tl.encode('utf-8')}
     if sl is not None:
-        list_of_params.update(sl = sl.encode('utf-8'))
+        list_of_params.update(sl=sl.encode('utf-8'))
     request = urllib2.Request(url, data=urllib.urlencode(list_of_params),
                               headers=HEADERS)
     result = urllib2.urlopen(request, timeout=timeout).read()
-    # Replace ,,,, sequences with ,null,null,null,null, because that's 
+    # Replace ,,,, sequences with ,null,null,null,null, because that's
     # allowed in javascript, but not in json
     fixed_json = re.sub(r',{2,}', (lambda m:'null'.join(m.group(0))), result)
-    fixed_json = fixed_json.replace(',]', ']')  
+    fixed_json = fixed_json.replace(',]', ']')
     data = json.loads(fixed_json, encoding='utf-8')
     parts_list = [trans[0] for trans in data[4]]
-    result = u' '.join((part if isinstance(part, unicode) else part.decode('utf-8')) 
+    result = u' '.join((part if isinstance(part, unicode) else part.decode('utf-8'))
                            for part in parts_list)
     # Remove whitespace before punctuation
-    result = re.sub(u'\s+([,\.!?\-\(\)\+\=\*])',r'\1', result, flags=re.UNICODE)
-    result = re.sub(u'^\s+', '', result, flags=re.MULTILINE+re.UNICODE)
-    result = re.sub(u'[ ]+', ' ', result, flags=re.MULTILINE+re.UNICODE)
+    result = re.sub(u'\s+([,\.!?\-\(\)\+\=\*])', r'\1', result, flags=re.UNICODE)
+    result = re.sub(u'^\s+', '', result, flags=re.MULTILINE + re.UNICODE)
+    result = re.sub(u'[ ]+', ' ', result, flags=re.MULTILINE + re.UNICODE)
     return result
 
 
