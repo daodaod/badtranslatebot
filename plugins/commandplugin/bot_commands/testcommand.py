@@ -12,10 +12,12 @@ class TestCommand(Command):
 
     @command_names(u'выбор', u'выбери', u'choose')
     def choose_random(self, command, args, **kwargs):
-        if '\n' in args:
-            args = args.split('\n')
+        for sep in ['\n', u' или ', ';', ',']:
+            if sep in args:
+                args = args.split(sep)
+                break
         else:
-            args = args.split(';')
+            args = ''
         args = [arg for arg in args if arg.strip()]
         if not args:
             return u'Не из чего выбирать.'
