@@ -23,6 +23,10 @@ class Task(object):
     def execute(self):
         pass
 
+    def on_finished(self):
+        ''' Always called after task is executed (even if an exception was raised while executing) '''
+        pass
+
 class PoolWorker(StoppableThread):
     def __init__(self, task_queue, exception_handler):
         super(PoolWorker, self).__init__()
@@ -41,6 +45,13 @@ class PoolWorker(StoppableThread):
                 except Exception:
                     if self.exception_handler is not None:
                         self.exception_handler(*sys.exc_info())
+                finally:
+                    try:
+                        task.on_finished()
+                    except Exception:
+                        # Normally this should never happen
+                        if self.exception_handler is not None:
+                            self.exception_handler(*sys.exc_info())
 
 class TaskPool(object):
     def __init__(self, workers_num, max_task_num, daemon_threads=True, exception_handler=None):
