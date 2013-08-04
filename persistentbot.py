@@ -5,6 +5,7 @@ import jabberbot
 import time
 import xmpp
 import jabberroom
+import threading
 
 class PersistentJabberBot(jabberbot.JabberBot):
     # If nothing was heard from the room for ROOM_CHECK_PERIOD seconds, check, if we are still there.
@@ -22,6 +23,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
         handlers = [('message', self.callback_message),
                     ('presence', self.callback_presence),
                     ('iq', self.callback_iq)]
+        self.send_lock = threading.Lock()  # since xmpppy dispatcher.send is not thread safe,
         next_constructor = super(PersistentJabberBot, self).__init__
         next_constructor(username, password, res=res, debug=debug,
                          privatedomain=privatedomain, acceptownmsgs=acceptownmsgs,
@@ -189,6 +191,15 @@ class PersistentJabberBot(jabberbot.JabberBot):
         leave_pres = self.build_room_presence(room, username, type_='unavailable')
         return self.send_stanza(leave_pres)
 
+    def kick(self, room, nick, reason=None):
+        raise NotImplementedError
+
+    def send_tune(self, song, debug=False):
+        raise NotImplementedError
+
+    def invite(self, room, jid, reason=None):
+        raise NotImplementedError
+
     def get_room(self, room_jid):
         room = self.rooms.get(room_jid, None)
         if room is None:
@@ -217,7 +228,8 @@ class PersistentJabberBot(jabberbot.JabberBot):
     def send_stanza(self, stanza):
         conn = self.conn
         if conn is not None:
-            return conn.send(stanza)
+            with self.send_lock:
+                return conn.send(stanza)
 
     def idle_proc(self):
         super(PersistentJabberBot, self).idle_proc()
@@ -281,15 +293,17 @@ if __name__ == '__main__':
     import configobj
     import traceback
     import plugins.chatlogplugin
+    import plugins.translation_plugin
     config = configobj.ConfigObj('bot.config')
     login = config['jabber_account']['jid']
     password = config['jabber_account']['password']
     resource = config['jabber_account']['resource']
 
-    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin('../chatlogs')
-
     bot = PersistentJabberBot(login, password, res=resource)
+
+    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin('../chatlogs')
     bot.register_plugin(chatlog_plugin)
+
     for name, room in config['rooms'].iteritems():
         bot.add_room(room['jid'], room['nickname'], room.get('password'))
 
