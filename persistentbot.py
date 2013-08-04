@@ -313,6 +313,8 @@ if __name__ == '__main__':
     import configobj
     import plugins.chatlogplugin
     import plugins.translationplugin
+    import plugins.commandplugin
+    import plugins.commandplugin.bot_commands.hellocommand
     config = configobj.ConfigObj('bot.config')
     login = config['jabber_account']['jid']
     password = config['jabber_account']['password']
@@ -324,6 +326,12 @@ if __name__ == '__main__':
 
     chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin(log_path)
     bot.register_plugin(chatlog_plugin)
+
+    command_plugin = plugins.commandplugin.CommandPlugin(5)
+    bot.register_plugin(command_plugin)
+
+    hello_command = plugins.commandplugin.bot_commands.hellocommand.TestCommand()
+    command_plugin.register_command(hello_command)
 
     translation_config = config['plugins']['translation']
     max_concurrent_translations = int(translation_config['max_concurrent_translations'])
