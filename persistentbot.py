@@ -314,7 +314,8 @@ if __name__ == '__main__':
     import plugins.chatlogplugin
     import plugins.translationplugin
     import plugins.commandplugin
-    import plugins.commandplugin.bot_commands.hellocommand
+    import plugins.commandplugin.bot_commands
+    import plugins.commandplugin.bot_commands.testcommand
     config = configobj.ConfigObj('bot.config')
     login = config['jabber_account']['jid']
     password = config['jabber_account']['password']
@@ -330,7 +331,7 @@ if __name__ == '__main__':
     command_plugin = plugins.commandplugin.CommandPlugin(5)
     bot.register_plugin(command_plugin)
 
-    hello_command = plugins.commandplugin.bot_commands.hellocommand.TestCommand()
+    hello_command = plugins.commandplugin.bot_commands.testcommand.TestCommand()
     command_plugin.register_command(hello_command)
 
     translation_config = config['plugins']['translation']
