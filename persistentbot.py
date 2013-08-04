@@ -318,14 +318,18 @@ if __name__ == '__main__':
     password = config['jabber_account']['password']
     resource = config['jabber_account']['resource']
 
-
     bot = PersistentJabberBot(login, password, res=resource, pool_workers=10)
 
+    log_path = config['plugins']['chatlog']['log_path']
 
-    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin('../chatlogs')
+    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin(log_path)
     bot.register_plugin(chatlog_plugin)
 
-    badtranslate_plugin = plugins.translationplugin.BadTranslatePlugin(5, 10)
+    translation_config = config['plugins']['translation']
+    max_concurrent_translations = int(translation_config['max_concurrent_translations'])
+    translation_iterations = int(translation_config['translation_iterations'])
+    badtranslate_plugin = plugins.translationplugin.BadTranslatePlugin(max_tasks=max_concurrent_translations,
+                                                                       translations=translation_iterations)
     bot.register_plugin(badtranslate_plugin)
     for name, room in config['rooms'].iteritems():
         bot.add_room(room['jid'], room['nickname'], room.get('password'))

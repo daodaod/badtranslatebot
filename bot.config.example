@@ -8,6 +8,10 @@ resource = jabber_bot
    jid = example@conference.jabber.org
    nickname = badtranslatebot
     
-[badtranslate]
-translation_threads = 4
-translation_queue_limit = 4
+[plugins]
+  [[chatlog]]
+  log_path = /path/to/chatlogs
+
+  [[translation]]
+  max_concurrent_translations = 4
+  translation_iterations = 20
