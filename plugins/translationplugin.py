@@ -6,7 +6,6 @@ import gtranslate
 import xmpp
 import re
 import random
-import functools
 
 class BadTranslatePlugin(plugins.ThreadedPlugin):
     def __init__(self, max_tasks, translations):
