@@ -8,18 +8,17 @@ import jabberroom
 
 class PersistentJabberBot(jabberbot.JabberBot):
     # If nothing was heard from the room for ROOM_CHECK_PERIOD seconds, check, if we are still there.
-    ROOM_CHECK_PERIOD = 3600*24
+    ROOM_CHECK_PERIOD = 3600 * 24
     # Do not re-join room more often than once per this seconds.
     ROOM_CHECK_FREQUENCY = 10
     PING_FREQUENCY = 30
     PING_TIMEOUT = 10
 
-    def __init__(self, username, password, res=None, debug=False, 
+    def __init__(self, username, password, res=None, debug=False,
         privatedomain=False, acceptownmsgs=False, command_prefix=''):
-        
         self.stopped = False
         self.rooms = {}
-        self.method_plugins = {} # method name -> [list of plugins]
+        self.method_plugins = {}  # method name -> [list of plugins]
         handlers = [('message', self.callback_message),
                     ('presence', self.callback_presence),
                     ('iq', self.callback_iq)]
@@ -27,7 +26,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
         next_constructor(username, password, res=res, debug=debug,
                          privatedomain=privatedomain, acceptownmsgs=acceptownmsgs,
                          handlers=handlers, command_prefix=command_prefix)
-                
+
     def callback_presence(self, conn, presence):
         assert isinstance(presence, xmpp.Presence)
         self.process_presence(presence)
@@ -38,7 +37,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
                 self.process_room_presence(presence)
         # TODO: Get rid of this super call
         super(PersistentJabberBot, self).callback_presence(conn, presence)
-        
+
     def callback_message(self, conn, message):
         assert isinstance(message, xmpp.Message)
         self.process_message(message)
@@ -48,32 +47,32 @@ class PersistentJabberBot(jabberbot.JabberBot):
             self.process_delayed_message(message)
         elif message.getBody():
             self.process_text_message(message)
-            
+
     def callback_iq(self, conn, iq):
         # TODO: Add some pretty iq response
         pass
-    
+
     def process_message(self, message):
         ''' This routine handles all messages, received by bot.'''
         self.handle_plugins(self.process_message.__name__, message)
-    
+
     def process_message_error(self, message):
         ''' This routine handles all message stanzas with error tag set.'''
         pass
-    
+
     def process_delayed_message(self, message):
         ''' This routine handles delayed messages. Those are usually sent as history,
         when bot enters the room.'''
         pass
-    
+
     def process_text_message(self, message):
         ''' This routine handles all messages with body tag.'''
-        pass
-    
+        self.handle_plugins(self.process_text_message.__name__, message)
+
     def process_presence(self, presence):
         ''' This routine handles all presence stanzas'''
         self.handle_plugins(self.process_presence.__name__, presence)
-    
+
     def process_room_presence(self, presence):
         assert isinstance(presence, xmpp.Presence)
         jid = presence.getFrom()
@@ -89,7 +88,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
         room_nick = jid.getResource()
         room = self.get_room(room_jid)
         # Manage participants list
-        if presence.getNick() is not None and presence.getStatusCode()=='303':
+        if presence.getNick() is not None and presence.getStatusCode() == '303':
             room.change_user_nick(user_info, room_nick, presence.getNick())
         elif presence.getType() == 'unavailable':
             room.del_user(room_nick)
@@ -107,7 +106,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
             room.last_activity = 0
         else:
             room.last_activity = current_time
-        
+
     def process_presence_error(self, presence):
         jid = presence.getFrom()
         room_jid = jid.getStripped()
@@ -116,28 +115,36 @@ class PersistentJabberBot(jabberbot.JabberBot):
         room = self.get_room(room_jid)
         room.change_temporary_nick()
         room.last_activity = 0
-        
+
     def handle_plugins(self, methodname, *args, **kwargs):
         for plugin in self.method_plugins.get(methodname, []):
             func = getattr(plugin, methodname)
             kwargs['bot_instance'] = self
-            func(*args, **kwargs)
-            
+            try:
+                func(*args, **kwargs)
+            except plugins.StanzaProcessed:
+                break  # TODO: Maybe add logging.log here?
+
     def register_plugin(self, plugin):
-        plugin.add_bot_instance(self)
+        ''' Registers plugin in our bot. If that plugin instance is already registered, do nothing.
+        Warning! Order in which you register plugins matters. Plugin methods will be called directly in that
+        order. So, the most important plugins e.g. logging should be registered first since other plugins
+        may stop processing cycle by raising StanzaProcessed exception.'''
+        if not plugin.add_bot_instance(self):
+            return
         for methodname in plugin.get_registered_methods_names():
             plugins_list = self.method_plugins.setdefault(methodname, [])
-            if plugin not in plugins_list:
-                plugins_list.append(plugin)
-                
+            plugins_list.append(plugin)
+
     def unregister_plugin(self, plugin):
+        ''' Unregisters plugin from our bot. Raises ValueError if plugin was not registered previously '''
         plugin.remove_bot_instance(self)
         for methodname in plugin.get_registered_methods_names():
             plugins_list = self.method_plugins[methodname]
             plugins_list.remove(plugin)
             if not plugins_list:
                 self.method_plugins.pop(methodname)
-        
+
     def is_my_jid(self, jid):
         ''' Determines, if that jid is our jid. It could be just our jabber login,
         or our jid in some conference.'''
@@ -147,19 +154,19 @@ class PersistentJabberBot(jabberbot.JabberBot):
             if jid.getResource():
                 return True
         return False
-    
+
     def get_my_room_nickname(self, room_jid):
         ''' Returns our nickname in that room, or None, if there isn't such.'''
         room = self.rooms.get(room_jid)
         if room is not None:
             return room.real_nickname
-        
+
     def get_room_user(self, room_jid, nickname):
         room = self.rooms.get(room_jid)
         if room is None:
             return None
         return room.users.get(nickname)
-                                
+
     def build_room_presence(self, room, username, password=None, type_=None):
         if username is None:
             username = self.jid.getNode()
@@ -170,18 +177,18 @@ class PersistentJabberBot(jabberbot.JabberBot):
         if type_ is not None:
             pres.setType(type_)
         return pres
-        
+
     def join_room(self, room, username=None, password=None):
         ''' Send join presence. This function doesn't touch self.rooms variable at all.
         Instead, when server responses with "ok" presence, we add that room to self.rooms'''
         join_pres = self.build_room_presence(room, username, password)
         return self.send_stanza(join_pres)
-    
+
     def leave_room(self, room, username=None):
         ''' The same as join, but send "unavailable" presence '''
         leave_pres = self.build_room_presence(room, username, type_='unavailable')
         return self.send_stanza(leave_pres)
-         
+
     def get_room(self, room_jid):
         room = self.rooms.get(room_jid, None)
         if room is None:
@@ -193,7 +200,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
         room = self.get_room(room_jid)
         room.requested_nickname = nickname
         room.password = password
-        
+
     def check_rooms(self):
         current_time = time.time()
         for room_jid, room in self.rooms.iteritems():
@@ -203,52 +210,52 @@ class PersistentJabberBot(jabberbot.JabberBot):
                 continue
             room.last_checked = current_time
             self.join_room(room_jid, room.temporary_nickname, room.password)
-            
+
     def send_message(self, message):
         return self.send_stanza(message)
-    
+
     def send_stanza(self, stanza):
         conn = self.conn
         if conn is not None:
             return conn.send(stanza)
-        
+
     def idle_proc(self):
         super(PersistentJabberBot, self).idle_proc()
         self.check_rooms()
-        
+
     def process(self, timeout):
-        return self.conn.Process(timeout)        
+        return self.conn.Process(timeout)
 
     def on_ping_timeout(self):
         self.conn.disconnect()
-        
+
     @property
     def connected(self):
         return self.conn is not None and self.conn.connected
-    
+
     def connect(self):
         conn = super(PersistentJabberBot, self).connect()
         if conn is not None:
             conn.UnregisterDisconnectHandler(self.conn.DisconnectHandler)
         return conn
-    
+
     def disconnect(self):
         conn = self.conn
         if conn is not None:
             conn.disconnect()
-            
+
     def on_disconnect(self):
         for room in self.rooms.itervalues():
             room.last_activity = 0
-            
+
     def quit(self):
         ''' Stops the bot from serving'''
         self.stopped = True
-        
+
     def shutdown(self):
         if self.connected:
             self.disconnect()
-            
+
     def serve_forever(self):
         ''' Server until quit() is called or exception inside is raised.
         So, if you want bot to be really persistent, you should put serve_forever 
@@ -278,13 +285,13 @@ if __name__ == '__main__':
     login = config['jabber_account']['jid']
     password = config['jabber_account']['password']
     resource = config['jabber_account']['resource']
-    
+
     chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin('../chatlogs')
-    
+
     bot = PersistentJabberBot(login, password, res=resource)
     bot.register_plugin(chatlog_plugin)
     for name, room in config['rooms'].iteritems():
-        bot.add_room(room['jid'], room['nickname'], room.get('password'))    
+        bot.add_room(room['jid'], room['nickname'], room.get('password'))
 
     while True:
         try:
@@ -292,5 +299,5 @@ if __name__ == '__main__':
         except Exception, ex:
             print "Exception happened while serving"
             traceback.print_exc()
-    
-    
+
+

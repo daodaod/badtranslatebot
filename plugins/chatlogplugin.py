@@ -34,9 +34,9 @@ def get_message_sender_folder(message):
 
 def get_safe_filename(s):
     s = urllib2.quote(s, safe='')
-    #keepcharacters = (' ','.','_', '@')
-    #s = s.replace('/', '!')
-    #s = "".join(c for c in s if c.isalnum() or c in keepcharacters).rstrip()
+    # keepcharacters = (' ','.','_', '@')
+    # s = s.replace('/', '!')
+    # s = "".join(c for c in s if c.isalnum() or c in keepcharacters).rstrip()
     if len(s) > MAX_FILENAME_LEN:
         s = s[:200] + hashlib.sha256(s).hexdigest()
     return s
@@ -54,31 +54,25 @@ def convert_timestamp(timestamp):
     mm = timestamp[4:6]
     dd = timestamp[6:8]
     tm = timestamp.partition('T')[-1]
-    
-    return u'%s %s/%s/%s %s'%(time_now, yyyy, mm, dd, tm)
-    
+
+    return u'%s %s/%s/%s %s' % (time_now, yyyy, mm, dd, tm)
+
 
 class ChatlogPlugin(plugins.JabberPlugin):
     ''' Performs MUC logging in html format'''
-    
+
     def __init__(self, folder):
+        super(ChatlogPlugin, self).__init__()
         self.folder = folder
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
-        self.bot_instances = []
-        
-    def add_bot_instance(self, bot_instance):
-        self.bot_instances.append(bot_instance)
-    
-    def remove_bot_instance(self, bot_instance):
-        self.bot_instances.remove(bot_instance)
-                    
+
     def get_current_filename(self, subfolder):
         return os.path.join(subfolder, time.strftime('%Y_%m_%d.html'))
-    
+
     def write_header(self, f):
         f.write('''<html><head><meta http-equiv="content-type" content="text/html; charset=UTF-8"></head><body>''')
-                
+
     def write_message(self, f, message, bot_instance):
         assert isinstance(message, xmpp.Message)
         if self.is_bad_stanza(message):
@@ -105,13 +99,13 @@ class ChatlogPlugin(plugins.JabberPlugin):
         if text or not chat_state:
             chat_state = ''
         else:
-            chat_state = '<font style="color:green">Conversation state: <span class="chat_state">'+','.join(chat_state)+'</span></font>'
+            chat_state = '<font style="color:green">Conversation state: <span class="chat_state">' + ','.join(chat_state) + '</span></font>'
         f.write(message_template.format(color=color, timestamp=timestamp, nick=nick, text=text,
                                         text_color=text_color, chat_state=chat_state).encode('utf-8'))
-        
+
     def write_presence(self, f, presence, bot_instance):
         assert isinstance(presence, xmpp.Presence)
-        if self.is_bad_stanza(presence): 
+        if self.is_bad_stanza(presence):
             self.write_error(f, presence)
             return
         conference = presence.getFrom().getStripped()
@@ -144,13 +138,13 @@ class ChatlogPlugin(plugins.JabberPlugin):
         msg_info = []
         for name, item in (('Affiliation', affiliation), ('Role', role), ('Show', show), ('Status', status)):
             if item is not None:
-                msg_info.extend((name, ': <span class="',name,'">&quot;', html_escape(item), '&quot;</span> '))
+                msg_info.extend((name, ': <span class="', name, '">&quot;', html_escape(item), '&quot;</span> '))
         msg_info = u''.join(msg_info)
         timestamp = convert_timestamp(presence.getTimestamp())
         presence_template = u'''<div class="presence"></div><font size="2">({timestamp})</font> {msg_html} {msg_info}</div>'''
         f.write((presence_template.format(timestamp=timestamp, msg_html=msg_html, msg_info=msg_info)).encode('utf-8'))
 
-        
+
     def roll_file(self, subfolder=None):
         if subfolder is not None:
             subfolder = os.path.join(self.folder, subfolder)
@@ -163,7 +157,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
             with open(filename, 'wb') as f:
                 self.write_header(f)
         return filename
-    
+
     @plugins.register_plugin_method
     def process_message(self, message, bot_instance):
         if message.getError() is not None:
@@ -177,7 +171,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
 
     def is_bad_stanza(self, stanza):
         return stanza.getError() is not None or self.is_stanza_from_nowhere(stanza)
-    
+
     def is_stanza_from_nowhere(self, stanza):
         return not stanza.getFrom() or not stanza.getFrom().getStripped()
 
@@ -193,15 +187,15 @@ class ChatlogPlugin(plugins.JabberPlugin):
         filename = self.roll_file(from_)
         with open(filename, 'ab') as f:
             self.write_presence(f, presence, bot_instance)
-            
+
     def process_error(self, stanza):
         filename = self.roll_file('errors')
         with open(filename, 'ab') as f:
             self.write_error(f, stanza)
-        
+
     def write_error(self, f, stanza):
-        f.write((u'<pre style="color: red">%s\n%s</pre>'%(time.asctime(), html_escape(stanza.__str__(fancy=True)))).encode('utf-8'))
-        
-        
+        f.write((u'<pre style="color: red">%s\n%s</pre>' % (time.asctime(), html_escape(stanza.__str__(fancy=True)))).encode('utf-8'))
+
+
 if __name__ == '__main__':
     plugin = ChatlogPlugin('test')
