@@ -6,8 +6,11 @@ import time
 import xmpp
 import jabberroom
 import threading
+import threadpool
+import traceback
 
 class PersistentJabberBot(jabberbot.JabberBot):
+    # TODO: Get rid of jabberbot.JabberBot, we will have our own base soon
     # If nothing was heard from the room for ROOM_CHECK_PERIOD seconds, check, if we are still there.
     ROOM_CHECK_PERIOD = 3600 * 24
     # Do not re-join room more often than once per this seconds.
@@ -16,18 +19,26 @@ class PersistentJabberBot(jabberbot.JabberBot):
     PING_TIMEOUT = 10
 
     def __init__(self, username, password, res=None, debug=False,
-        privatedomain=False, acceptownmsgs=False, command_prefix=''):
+                 pool_workers=1, privatedomain=False, acceptownmsgs=False):
         self.stopped = False
         self.rooms = {}
         self.method_plugins = {}  # method name -> [list of plugins]
         handlers = [('message', self.callback_message),
                     ('presence', self.callback_presence),
                     ('iq', self.callback_iq)]
-        self.send_lock = threading.Lock()  # since xmpppy dispatcher.send is not thread safe,
+        # Since xmpppy dispatcher.send is not thread safe
+        # we will lock send_stanza method to linearize all conn.send methods
+        self.send_lock = threading.Lock()
+        self.threadpool = threadpool.TaskPool(workers_num=pool_workers,
+                                              max_task_num=pool_workers,
+                                              exception_handler=self.threadpool_exc_handler)
         next_constructor = super(PersistentJabberBot, self).__init__
         next_constructor(username, password, res=res, debug=debug,
                          privatedomain=privatedomain, acceptownmsgs=acceptownmsgs,
-                         handlers=handlers, command_prefix=command_prefix)
+                         handlers=handlers)
+
+    def threadpool_exc_handler(self, etype, value, tb):
+        traceback.print_exception(etype, value, tb)
 
     def callback_presence(self, conn, presence):
         assert isinstance(presence, xmpp.Presence)
@@ -200,6 +211,10 @@ class PersistentJabberBot(jabberbot.JabberBot):
     def invite(self, room, jid, reason=None):
         raise NotImplementedError
 
+    def add_task(self, task):
+        ''' Add task to threadpool. If wait queue is full, return False, otherwise return True '''
+        return self.threadpool.add_task(task)
+
     def get_room(self, room_jid):
         room = self.rooms.get(room_jid, None)
         if room is None:
@@ -288,30 +303,46 @@ class PersistentJabberBot(jabberbot.JabberBot):
                     continue
             self.idle_proc()
 
+    def on_exit(self, wait_for_threadpool=False):
+        self.threadpool.stop()
+        if wait_for_threadpool:
+            self.threadpool.join()
+
 
 if __name__ == '__main__':
     import configobj
-    import traceback
     import plugins.chatlogplugin
-    import plugins.translation_plugin
+    import plugins.translationplugin
     config = configobj.ConfigObj('bot.config')
     login = config['jabber_account']['jid']
     password = config['jabber_account']['password']
     resource = config['jabber_account']['resource']
 
-    bot = PersistentJabberBot(login, password, res=resource)
+
+    bot = PersistentJabberBot(login, password, res=resource, pool_workers=10)
+
 
     chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin('../chatlogs')
     bot.register_plugin(chatlog_plugin)
 
+    badtranslate_plugin = plugins.translationplugin.BadTranslatePlugin(5, 10)
+    bot.register_plugin(badtranslate_plugin)
     for name, room in config['rooms'].iteritems():
         bot.add_room(room['jid'], room['nickname'], room.get('password'))
 
-    while True:
-        try:
-            bot.serve_forever()
-        except Exception, ex:
-            print "Exception happened while serving"
-            traceback.print_exc()
+    try:
+        while True:
+            try:
+                bot.serve_forever()
+            except Exception, ex:
+                print "Exception happened within serve_forever!"
+                traceback.print_exc()
+        time.sleep(1)  # Let us not rape the server
+    finally:
+        print "Shutting down. Good bye."
+        if bot.connected:
+            bot.disconnect()
+        bot.on_exit()
+
 
 

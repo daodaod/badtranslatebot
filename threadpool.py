@@ -63,8 +63,13 @@ class TaskPool(object):
         [worker.start() for worker in self.workers]
 
     def add_task(self, task):
-        '''Adds the task to the queue. May raise Queue.Full'''
-        self.task_queue.put_nowait(task)
+        '''Adds the task to the queue. Return True if succeeded, otherwise False'''
+        try:
+            self.task_queue.put_nowait(task)
+        except Queue.Full:
+            return False
+        else:
+            return True
 
     def join(self):
         for worker in self.workers:
