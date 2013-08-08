@@ -7,12 +7,13 @@ import re
 import threadpool
 
 class CommandPlugin(plugins.ThreadedPlugin):
-    def __init__(self, max_tasks, command_prefix='!'):
-        self.command_prefix = command_prefix
+    command_prefix = plugins.make_config_property('command_prefix')
+    def __init__(self, config_section):
+        super(CommandPlugin, self).__init__(config_section)
         self.command_bindings = {}
         self.commands_list = []
         self.command_re = re.compile(r'(%s\w+)' % re.escape(self.command_prefix), flags=re.UNICODE)
-        super(CommandPlugin, self).__init__(max_tasks=max_tasks)
+
 
     def register_command(self, command):
         ''' Register command in a CommandPlugin. Won't do anything if there are conflicts '''
@@ -41,12 +42,9 @@ class CommandPlugin(plugins.ThreadedPlugin):
             self.command_bindings.pop(command_name)
 
     @plugins.register_plugin_method
-    def process_text_message(self, message, bot_instance):
-        if message.getSubject() is not None:
-            return
+    def process_text_message(self, message, bot_instance, has_subject, is_from_me, **kwargs):
+        if is_from_me or has_subject: return
         from_ = message.getFrom()
-        if bot_instance.is_my_jid(from_):
-            return
         text = message.getBody()
         split_text = self.command_re.split(text, maxsplit=1)
         if len(split_text) == 1:  # there is even no command prefix

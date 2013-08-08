@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import inspect
+import functools
 
 COMMAND_METHOD_ATTR = '_method_commands'
 
@@ -30,6 +31,16 @@ class CommandConflict(Exception):
         return ("For command '%s', methods: %r and %r" %
                 (self.name, self.method1, self.method2))
 
+def admin_only(func):
+    @functools.wraps(func)
+    def wrapper(self, command, *args, **kwargs):
+        bot_instance = kwargs['bot_instance']
+        message = kwargs['message']
+        if not self._is_from_admin(bot_instance, message):
+            return "Sorry, you don't have enough privileges to execute '%s' command." % command
+        return func(self, command, *args, **kwargs)
+    return wrapper
+
 class Command(object):
     ''' This class is base for all bot commands 
     
@@ -51,6 +62,9 @@ class Command(object):
     
     If return value is None, nothing is done '''
 
+    def __init__(self, config_section):
+        self.config_section = config_section
+
     def get_registered_commands(self):
         result = {}
         methods = inspect.getmembers(self, inspect.ismethod)
@@ -59,3 +73,11 @@ class Command(object):
             for command_name in command_names:
                 _add_command_handler(command_name, method, result)
         return result
+
+    def _is_from_admin(self, bot_instance, message):
+        if message.getType() == 'chat':
+            # Since here we don't know admin jids
+            return False
+        print bot_instance.get_room_user_by_jid(message.getFrom())
+        return bot_instance.get_room_user_by_jid(message.getFrom()).affiliation in ('owner', 'admin')
+

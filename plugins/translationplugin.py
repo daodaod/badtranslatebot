@@ -33,7 +33,7 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
         return text.strip().replace('?', '.')
 
     @plugins.register_plugin_method
-    def process_text_message(self, message, bot_instance):
+    def process_text_message(self, message, bot_instance, **kwargs):
         assert isinstance(message, xmpp.Message)
         if message.getType() != 'groupchat':
             return

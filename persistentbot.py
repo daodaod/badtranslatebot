@@ -92,7 +92,8 @@ class PersistentJabberBot(jabberbot.JabberBot):
         pres_role = presence.getRole()
         pres_show = presence.getShow()
         pres_status = presence.getStatus()
-        user_info = [pres_jid, pres_affiliation, pres_role, pres_show, pres_status]
+        user_info = jabberroom.JabberRoomUser(jid=pres_jid, affiliation=pres_affiliation,
+                                              role=pres_role, show=pres_show, status=pres_status)
         current_time = time.time()
         room_jid = jid.getStripped()
         room_nick = jid.getResource()
@@ -138,7 +139,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
 
     def get_my_room_nickname(self, room_jid):
         ''' Returns our nickname in that room, or None, if there isn't such.'''
-        room = self.rooms.get(room_jid)
+        room = self.rooms[room_jid]
         if room is not None:
             return room.real_nickname
 
@@ -147,6 +148,9 @@ class PersistentJabberBot(jabberbot.JabberBot):
         if room is None:
             return None
         return room.users.get(nickname)
+
+    def get_room_user_by_jid(self, jid):
+        return self.get_room_user(jid.getStripped(), jid.getResource())
 
     def build_room_presence(self, room, username, password=None, type_=None):
         if username is None:
@@ -293,71 +297,14 @@ class PersistentJabberBot(jabberbot.JabberBot):
             self.threadpool.join()
 
 
-import plugins
-class ExtendableJabberBot(PersistentJabberBot):
-    def __init__(self, username, password, res=None, debug=False,
-        pool_workers=1, privatedomain=False, acceptownmsgs=False):
-        self.method_plugins = {}  # method name -> [list of plugins]
-        self.threadpool = threadpool.TaskPool(workers_num=pool_workers,
-                                              max_task_num=pool_workers,
-                                              exception_handler=self.threadpool_exc_handler)
-        super(ExtendableJabberBot, self).__init__(username, password, res=res, debug=debug, privatedomain=privatedomain, acceptownmsgs=acceptownmsgs)
-
-    def threadpool_exc_handler(self, etype, value, tb):
-        traceback.print_exception(etype, value, tb)
-
-    def handle_plugins(self, methodname, *args, **kwargs):
-        for plugin in self.method_plugins.get(methodname, []):
-            func = getattr(plugin, methodname)
-            kwargs['bot_instance'] = self
-            try:
-                func(*args, **kwargs)
-            except plugins.StanzaProcessed:
-                break  # TODO: Maybe add logging.log here?
-
-    def register_plugin(self, plugin):
-        ''' Registers plugin in our bot. If that plugin instance is already registered, do nothing.
-        Warning! Order in which you register plugins matters. Plugin methods will be called directly in that
-        order. So, the most important plugins e.g. logging should be registered first since other plugins
-        may stop processing cycle by raising StanzaProcessed exception.'''
-        if not plugin.add_bot_instance(self):
-            return
-        for methodname in plugin.get_registered_methods_names():
-            plugins_list = self.method_plugins.setdefault(methodname, [])
-            plugins_list.append(plugin)
-
-    def unregister_plugin(self, plugin):
-        ''' Unregisters plugin from our bot. Raises ValueError if plugin was not registered previously '''
-        plugin.remove_bot_instance(self)
-        for methodname in plugin.get_registered_methods_names():
-            plugins_list = self.method_plugins[methodname]
-            plugins_list.remove(plugin)
-            if not plugins_list:
-                self.method_plugins.pop(methodname)
-
-    def process_message(self, message):
-        self.handle_plugins(self.process_message.__name__, message)
-
-    def process_message_error(self, message):
-        self.handle_plugins(self.process_message_error.__name__, message)
-
-    def process_delayed_message(self, message):
-        self.handle_plugins(self.process_delayed_message.__name__, message)
-
-    def process_text_message(self, message, **kwargs):
-        self.handle_plugins(self.process_text_message.__name__, message, **kwargs)
-
-    def process_presence(self, presence):
-        self.handle_plugins(self.process_presence.__name__, presence)
-
-
 if __name__ == '__main__':
     import configobj
 
     config = configobj.ConfigObj('config/john.config')
-    login = config['jabber_account']['jid']
-    password = config['jabber_account']['password']
-    resource = config['jabber_account'].get('resource', None)
+    acc_info = config['jabber_account']
+    login = acc_info['jid']
+    password = acc_info['password']
+    resource = acc_info.get('resource', None)
 
     bot = PersistentJabberBot(login, password, res=resource)
 
@@ -365,6 +312,5 @@ if __name__ == '__main__':
         bot.add_room(room['jid'], room['nickname'], room.get('password'))
 
     bot.serve_really_forever(traceback.print_exception)
-
 
 

@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+class JabberRoomUser(object):
+    __slots__ = "nick", "jid", "affiliation", "role", "show", "status"
 
+    def __init__(self, **kwargs):
+        for item in self.__slots__:
+            setattr(self, item, kwargs.get(item, None))
 
 class JabberRoom(object):
     ''' Represents jabber room as seen by bot. 
@@ -54,6 +59,7 @@ class JabberRoom(object):
 
     def add_user(self, nick, user):
         self.users[nick] = user
+        user.nick = nick
 
     def del_user(self, nick):
         self.users.pop(nick, None)
@@ -61,6 +67,7 @@ class JabberRoom(object):
     def change_user_nick(self, user, nick, new_nick):
         old_user = self.users.pop(nick, user)
         self.users[new_nick] = old_user
+        user.nick = new_nick
 
     def __str__(self):
         return "<Jabber conference %s/%s %r" % (self.room_jid, self.real_nickname, self.users)

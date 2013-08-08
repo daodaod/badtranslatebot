@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+PLUGIN_CLASS = 'ChatlogPlugin'
+
 import plugins
 import os
 import time
@@ -61,11 +63,12 @@ def convert_timestamp(timestamp):
 class ChatlogPlugin(plugins.JabberPlugin):
     ''' Performs MUC logging in html format'''
 
-    def __init__(self, folder):
-        super(ChatlogPlugin, self).__init__()
-        self.folder = folder
+    def __init__(self, config):
+        super(ChatlogPlugin, self).__init__(config)
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
+
+    folder = plugins.make_config_property('folder')
 
     def get_current_filename(self, subfolder):
         return os.path.join(subfolder, time.strftime('%Y_%m_%d.html'))
