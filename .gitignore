@@ -36,3 +36,6 @@ nosetests.xml
 
 # Config files
 *.config
+
+# Eclipse .settings
+.settings
