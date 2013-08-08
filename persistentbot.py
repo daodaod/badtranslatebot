@@ -8,6 +8,7 @@ import jabberroom
 import threading
 import threadpool
 import traceback
+import sys
 
 class PersistentJabberBot(jabberbot.JabberBot):
     # TODO: Get rid of jabberbot.JabberBot, we will have our own base soon
@@ -22,23 +23,16 @@ class PersistentJabberBot(jabberbot.JabberBot):
                  pool_workers=1, privatedomain=False, acceptownmsgs=False):
         self.stopped = False
         self.rooms = {}
-        self.method_plugins = {}  # method name -> [list of plugins]
         handlers = [('message', self.callback_message),
                     ('presence', self.callback_presence),
                     ('iq', self.callback_iq)]
         # Since xmpppy dispatcher.send is not thread safe
         # we will lock send_stanza method to linearize all conn.send methods
         self.send_lock = threading.Lock()
-        self.threadpool = threadpool.TaskPool(workers_num=pool_workers,
-                                              max_task_num=pool_workers,
-                                              exception_handler=self.threadpool_exc_handler)
         next_constructor = super(PersistentJabberBot, self).__init__
         next_constructor(username, password, res=res, debug=debug,
                          privatedomain=privatedomain, acceptownmsgs=acceptownmsgs,
                          handlers=handlers)
-
-    def threadpool_exc_handler(self, etype, value, tb):
-        traceback.print_exception(etype, value, tb)
 
     def callback_presence(self, conn, presence):
         assert isinstance(presence, xmpp.Presence)
@@ -59,7 +53,10 @@ class PersistentJabberBot(jabberbot.JabberBot):
         elif xmpp.NS_DELAY in message.getProperties():
             self.process_delayed_message(message)
         elif message.getBody():
-            self.process_text_message(message)
+            has_subject = message.getSubject() is not None
+            is_from_me = self.is_my_jid(message.getFrom())
+            is_groupchat = message.getType() == 'groupchat'
+            self.process_text_message(message, has_subject=has_subject, is_from_me=is_from_me, is_groupchat=is_groupchat)
 
     def callback_iq(self, conn, iq):
         # TODO: Add some pretty iq response
@@ -67,7 +64,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
 
     def process_message(self, message):
         ''' This routine handles all messages, received by bot.'''
-        self.handle_plugins(self.process_message.__name__, message)
+        pass
 
     def process_message_error(self, message):
         ''' This routine handles all message stanzas with error tag set.'''
@@ -78,13 +75,13 @@ class PersistentJabberBot(jabberbot.JabberBot):
         when bot enters the room.'''
         pass
 
-    def process_text_message(self, message):
+    def process_text_message(self, message, has_subject, is_from_me, is_groupchat) :
         ''' This routine handles all messages with body tag.'''
-        self.handle_plugins(self.process_text_message.__name__, message)
+        pass
 
     def process_presence(self, presence):
         ''' This routine handles all presence stanzas'''
-        self.handle_plugins(self.process_presence.__name__, presence)
+        pass
 
     def process_room_presence(self, presence):
         assert isinstance(presence, xmpp.Presence)
@@ -128,35 +125,6 @@ class PersistentJabberBot(jabberbot.JabberBot):
         room = self.get_room(room_jid)
         room.change_temporary_nick()
         room.last_activity = 0
-
-    def handle_plugins(self, methodname, *args, **kwargs):
-        for plugin in self.method_plugins.get(methodname, []):
-            func = getattr(plugin, methodname)
-            kwargs['bot_instance'] = self
-            try:
-                func(*args, **kwargs)
-            except plugins.StanzaProcessed:
-                break  # TODO: Maybe add logging.log here?
-
-    def register_plugin(self, plugin):
-        ''' Registers plugin in our bot. If that plugin instance is already registered, do nothing.
-        Warning! Order in which you register plugins matters. Plugin methods will be called directly in that
-        order. So, the most important plugins e.g. logging should be registered first since other plugins
-        may stop processing cycle by raising StanzaProcessed exception.'''
-        if not plugin.add_bot_instance(self):
-            return
-        for methodname in plugin.get_registered_methods_names():
-            plugins_list = self.method_plugins.setdefault(methodname, [])
-            plugins_list.append(plugin)
-
-    def unregister_plugin(self, plugin):
-        ''' Unregisters plugin from our bot. Raises ValueError if plugin was not registered previously '''
-        plugin.remove_bot_instance(self)
-        for methodname in plugin.get_registered_methods_names():
-            plugins_list = self.method_plugins[methodname]
-            plugins_list.remove(plugin)
-            if not plugins_list:
-                self.method_plugins.pop(methodname)
 
     def is_my_jid(self, jid):
         ''' Determines, if that jid is our jid. It could be just our jabber login,
@@ -278,6 +246,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
     def quit(self):
         ''' Stops the bot from serving'''
         self.stopped = True
+        self.shutdown()
 
     def shutdown(self):
         if self.connected:
@@ -303,59 +272,99 @@ class PersistentJabberBot(jabberbot.JabberBot):
                     continue
             self.idle_proc()
 
+    def serve_really_forever(self, exception_handler=None):
+        try:
+            while not self.stopped:
+                try:
+                    self.serve_forever()
+                except Exception:
+                    if exception_handler is not None:
+                        exception_handler(*sys.exc_info())
+            time.sleep(1)  # Let us not rape the server
+        finally:
+            if self.connected:
+                self.disconnect()
+            self.on_exit()
+
+
     def on_exit(self, wait_for_threadpool=False):
         self.threadpool.stop()
         if wait_for_threadpool:
             self.threadpool.join()
 
 
+import plugins
+class ExtendableJabberBot(PersistentJabberBot):
+    def __init__(self, username, password, res=None, debug=False,
+        pool_workers=1, privatedomain=False, acceptownmsgs=False):
+        self.method_plugins = {}  # method name -> [list of plugins]
+        self.threadpool = threadpool.TaskPool(workers_num=pool_workers,
+                                              max_task_num=pool_workers,
+                                              exception_handler=self.threadpool_exc_handler)
+        super(ExtendableJabberBot, self).__init__(username, password, res=res, debug=debug, privatedomain=privatedomain, acceptownmsgs=acceptownmsgs)
+
+    def threadpool_exc_handler(self, etype, value, tb):
+        traceback.print_exception(etype, value, tb)
+
+    def handle_plugins(self, methodname, *args, **kwargs):
+        for plugin in self.method_plugins.get(methodname, []):
+            func = getattr(plugin, methodname)
+            kwargs['bot_instance'] = self
+            try:
+                func(*args, **kwargs)
+            except plugins.StanzaProcessed:
+                break  # TODO: Maybe add logging.log here?
+
+    def register_plugin(self, plugin):
+        ''' Registers plugin in our bot. If that plugin instance is already registered, do nothing.
+        Warning! Order in which you register plugins matters. Plugin methods will be called directly in that
+        order. So, the most important plugins e.g. logging should be registered first since other plugins
+        may stop processing cycle by raising StanzaProcessed exception.'''
+        if not plugin.add_bot_instance(self):
+            return
+        for methodname in plugin.get_registered_methods_names():
+            plugins_list = self.method_plugins.setdefault(methodname, [])
+            plugins_list.append(plugin)
+
+    def unregister_plugin(self, plugin):
+        ''' Unregisters plugin from our bot. Raises ValueError if plugin was not registered previously '''
+        plugin.remove_bot_instance(self)
+        for methodname in plugin.get_registered_methods_names():
+            plugins_list = self.method_plugins[methodname]
+            plugins_list.remove(plugin)
+            if not plugins_list:
+                self.method_plugins.pop(methodname)
+
+    def process_message(self, message):
+        self.handle_plugins(self.process_message.__name__, message)
+
+    def process_message_error(self, message):
+        self.handle_plugins(self.process_message_error.__name__, message)
+
+    def process_delayed_message(self, message):
+        self.handle_plugins(self.process_delayed_message.__name__, message)
+
+    def process_text_message(self, message, **kwargs):
+        self.handle_plugins(self.process_text_message.__name__, message, **kwargs)
+
+    def process_presence(self, presence):
+        self.handle_plugins(self.process_presence.__name__, presence)
+
+
 if __name__ == '__main__':
     import configobj
-    import plugins.chatlogplugin
-    import plugins.translationplugin
-    import plugins.commandplugin
-    import plugins.commandplugin.bot_commands
-    import plugins.commandplugin.bot_commands.testcommand
-    config = configobj.ConfigObj('bot.config')
+
+    config = configobj.ConfigObj('config/john.config')
     login = config['jabber_account']['jid']
     password = config['jabber_account']['password']
-    resource = config['jabber_account']['resource']
+    resource = config['jabber_account'].get('resource', None)
 
-    bot = PersistentJabberBot(login, password, res=resource, pool_workers=10)
+    bot = PersistentJabberBot(login, password, res=resource)
 
-    log_path = config['plugins']['chatlog']['log_path']
-
-    chatlog_plugin = plugins.chatlogplugin.ChatlogPlugin(log_path)
-    bot.register_plugin(chatlog_plugin)
-
-    command_plugin = plugins.commandplugin.CommandPlugin(5)
-    bot.register_plugin(command_plugin)
-
-    hello_command = plugins.commandplugin.bot_commands.testcommand.TestCommand()
-    command_plugin.register_command(hello_command)
-
-    translation_config = config['plugins']['translation']
-    max_concurrent_translations = int(translation_config['max_concurrent_translations'])
-    translation_iterations = int(translation_config['translation_iterations'])
-    badtranslate_plugin = plugins.translationplugin.BadTranslatePlugin(max_tasks=max_concurrent_translations,
-                                                                       translations=translation_iterations)
-    bot.register_plugin(badtranslate_plugin)
     for name, room in config['rooms'].iteritems():
         bot.add_room(room['jid'], room['nickname'], room.get('password'))
 
-    try:
-        while True:
-            try:
-                bot.serve_forever()
-            except Exception, ex:
-                print "Exception happened within serve_forever!"
-                traceback.print_exc()
-        time.sleep(1)  # Let us not rape the server
-    finally:
-        print "Shutting down. Good bye."
-        if bot.connected:
-            bot.disconnect()
-        bot.on_exit()
+    bot.serve_really_forever(traceback.print_exception)
 
 
 
