@@ -62,6 +62,7 @@ def convert_timestamp(timestamp):
 
 class ChatlogPlugin(plugins.JabberPlugin):
     ''' Performs MUC logging in html format'''
+    always_handle_messages = False
 
     def __init__(self, config):
         super(ChatlogPlugin, self).__init__(config)

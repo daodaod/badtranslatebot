@@ -1,21 +1,28 @@
 [jabber_account]
-jid = user@server
-password = my_passwod
-resource = jabber_bot
+jid = example@example.org
+password = passw0rd
+resource = res
+
+[management]
+  command_prefix = '%'
+  allowed_affiliations = ['owner', 'admin']
+  admins = ['admin@example.org']
 
 [rooms]
    [[room1]]
-   jid = example@conference.jabber.org
-   nickname = badtranslatebot
-    
+   jid = room@conference.example.org
+   nickname = Botty
+   
 [plugins]
+  pool_workers = 5
   [[chatlog]]
-  log_path = /path/to/chatlogs
-
-  [[translation]]
-  max_concurrent_translations = 4
-  translation_iterations = 20
-  
-  [[chatvdvoem]]
-  max_human_count = 2
-  
+    module = plugins.chatlogplugin
+    [[[config]]]
+      folder = /home/user/trash/chatlogs
+      
+  [[translator]]
+    module = plugins.translationplugin
+    [[[config]]]
+      max_tasks = 4
+      translations = 2
+      reply_probability = 1

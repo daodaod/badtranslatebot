@@ -16,6 +16,10 @@ def register_plugin_method(fn):
     PersistentBot instance.'''
     setattr(fn, PLUGIN_METHOD_ATTR, True)
     return fn
+
+def is_registered_method(fn):
+    return bool(getattr(fn, PLUGIN_METHOD_ATTR, False))
+
 __sentinel = object()
 def make_config_property(field, getter=None, setter=None, default=__sentinel):
     def fget(self):
@@ -33,6 +37,9 @@ def make_config_property(field, getter=None, setter=None, default=__sentinel):
 
 class JabberPlugin(object):
     ''' This class is base for all plugins '''
+    # If set to True, plugin will handle stanzas even if another handler has raised StanzaProcessed.
+    # This allows us to implement logging/stats plugins that log everythin with minor changes.
+    always_handle_messages = False
 
     def __init__(self, config_section):
         self.apply_config(config_section)
@@ -62,6 +69,9 @@ class JabberPlugin(object):
             if getattr(method, PLUGIN_METHOD_ATTR, False):
                 result.append(name)
         return result
+
+    def shutdown(self):
+        pass
 
 
 if __name__ == '__main__':

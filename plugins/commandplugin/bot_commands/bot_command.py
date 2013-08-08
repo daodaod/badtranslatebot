@@ -78,6 +78,5 @@ class Command(object):
         if message.getType() == 'chat':
             # Since here we don't know admin jids
             return False
-        print bot_instance.get_room_user_by_jid(message.getFrom())
         return bot_instance.get_room_user_by_jid(message.getFrom()).affiliation in ('owner', 'admin')
 

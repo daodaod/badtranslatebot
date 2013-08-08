@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+PLUGIN_CLASS = 'BadTranslatePlugin'
+
 import plugins
 import gtranslate
 import xmpp
@@ -8,23 +10,29 @@ import re
 import random
 
 class BadTranslatePlugin(plugins.ThreadedPlugin):
-    def __init__(self, max_tasks, translations):
-        self.translations = translations
-        super(BadTranslatePlugin, self).__init__(max_tasks=max_tasks)
-
+    translations = plugins.make_config_property('translations', int, default=1)
+    reply_probability = plugins.make_config_property('reply_probability', float, default=0)
     def should_reply(self, text, my_nickname):
         ''' This routine checks, if bot's nickname is in the text, and if it is, replaces
         it with space.'''
-        text_parts = re.split(r'(\w+)', text, flags=re.UNICODE)
+        # The idea is to catch nickname with non-alphabetic character after it.
+        text_parts = re.split(r'(%s(?:\W|$)|\w+)' % re.escape(my_nickname), text, flags=re.UNICODE | re.IGNORECASE)
+        print '|'.join(text_parts)
         my_nickname_lower = my_nickname.lower()
         nick_present = False
         for i, part in enumerate(text_parts):
-            if part.lower() == my_nickname_lower:
+            part_lower = part.lower()
+            # Maybe it's the case when we captured non-alphabetic character?
+            if len(part_lower) == len(my_nickname_lower) + 1:
+                if part_lower and not part_lower[-1].isalpha():
+                    # Cool, cut it away!
+                    part_lower = part_lower[:-1]
+            if part_lower == my_nickname_lower:
                 nick_present = True
                 text_parts[i - 1] = text_parts[i + 1] = u''
                 text_parts[i] = u' '
         if not nick_present:
-            if random.randrange(0, 300) < 10:
+            if random.random() < self.reply_probability:
                 return text
             return None
         return u''.join(text_parts)
@@ -33,19 +41,17 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
         return text.strip().replace('?', '.')
 
     @plugins.register_plugin_method
-    def process_text_message(self, message, bot_instance, **kwargs):
+    def process_text_message(self, message, bot_instance, has_subject, is_from_me, is_groupchat):
+        if has_subject or is_from_me or (not is_groupchat):
+            return
+        print "HERE I AM"
         assert isinstance(message, xmpp.Message)
-        if message.getType() != 'groupchat':
-            return
-        if message.getSubject() is not None:
-            return
         from_ = message.getFrom()
-        if bot_instance.is_my_jid(from_):
-            return
         text = message.getBody()
         my_nickname = bot_instance.get_my_room_nickname(from_.getStripped())
         text = self.preprocess_text(text)
         text = (self.should_reply(text, my_nickname) or '').strip()
+        print text
         if not text:
             return
         task = plugins.ThreadedPluginTask(self, bot_instance, message, self.translate_text)
@@ -53,6 +59,7 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
         self.add_task(task, bot_instance)
 
     def translate_text(self, text):
+        print self.translations
         return gtranslate.bad_translate(text, iterations=self.translations)
 
     def on_task_result(self, task, translation):

@@ -5,17 +5,19 @@ import persistentbot
 import threadpool
 import traceback
 import importlib
+import collections
 # ##
 import plugins
 import plugins.commandplugin
 import plugins.commandplugin.bot_commands.management_cmds
+import itertools
+import sys
 
 class ExtendableJabberBot(persistentbot.PersistentJabberBot):
     def __init__(self, username, password, config, res=None, debug=False,
         privatedomain=False, acceptownmsgs=False):
         self.config = config
-        self.method_plugins = {}  # method name -> [list of plugins]
-        self.plugins = {}  # plugin name -> plugin
+        self.plugins = collections.OrderedDict()  # plugin name -> plugin
         self.threadpool = threadpool.TaskPool(exception_handler=self.threadpool_exc_handler)
         super(ExtendableJabberBot, self).__init__(username, password, res=res, debug=debug, privatedomain=privatedomain, acceptownmsgs=acceptownmsgs)
         self.apply_config(load_plugins=True)
@@ -23,62 +25,74 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         management_plugin = plugins.commandplugin.CommandPlugin(management_config)
         management_command = plugins.commandplugin.bot_commands.management_cmds.ManagementCommands(management_config)
         management_plugin.register_command(management_command)
-        self.register_plugin(management_plugin)
+        self.compulsory_plugins = [("management", management_plugin)]
 
     def threadpool_exc_handler(self, etype, value, tb):
         traceback.print_exception(etype, value, tb)
 
     def handle_plugins(self, methodname, *args, **kwargs):
-        for plugin in self.method_plugins.get(methodname, []):
-            func = getattr(plugin, methodname)
-            kwargs['bot_instance'] = self
-            try:
-                func(*args, **kwargs)
-            except plugins.StanzaProcessed:
-                break  # TODO: Maybe add logging.log here?
+        to_process = [self.compulsory_plugins, self.plugins.iteritems()]
+        stanza_processed = False
+        for plugin_items in to_process:
+            for name, plugin in plugin_items:
+                if not plugin.enabled or (stanza_processed and not plugin.always_handle_messages):
+                    continue
+                try:
+                    self.handle_plugin_method(name, plugin, methodname, *args, **kwargs)
+                except plugins.StanzaProcessed:
+                    stanza_processed = True
 
-    def register_plugin(self, plugin):
+    def handle_plugin_method(self, name, plugin, methodname, *args, **kwargs):
+        func = getattr(plugin, methodname, None)
+        if func is None or (not plugins.is_registered_method(func)):
+            return
+        kwargs['bot_instance'] = self
+        try:
+            func(*args, **kwargs)
+        except plugins.StanzaProcessed:
+            raise
+        except Exception:
+            # TODO: Log this error
+            traceback.print_exc()
+
+    def register_plugin(self, plugin, name):
         ''' Registers plugin in our bot. If that plugin instance is already registered, do nothing.
         Warning! Order in which you register plugins matters. Plugin methods will be called directly in that
         order. So, the most important plugins e.g. logging should be registered first since other plugins
         may stop processing cycle by raising StanzaProcessed exception.
         If name is None, '''
-        if not plugin.add_bot_instance(self):
-            return False
-        for methodname in plugin.get_registered_methods_names():
-            plugins_list = self.method_plugins.setdefault(methodname, [])
-            plugins_list.append(plugin)
-        return True
-
-    def register_named_plugin(self, plugin, name):
         if name in self.plugins:
             return False
-        if not self.register_plugin(plugin):
+        if not plugin.add_bot_instance(self):
             return False
         self.plugins[name] = plugin
         return True
 
-    def unregister_plugin(self, plugin):
+    def unregister_plugin(self, name):
         ''' Unregisters plugin from our bot. Raises ValueError if plugin was not registered previously '''
-        plugin.remove_bot_instance(self)
-        for methodname in plugin.get_registered_methods_names():
-            plugins_list = self.method_plugins[methodname]
-            plugins_list.remove(plugin)
-            if not plugins_list:
-                self.method_plugins.pop(methodname)
-
-    def unregister_named_plugin(self, name):
         plugin = self.plugins[name]
-        self.unregister_plugin(plugin)
-        self.names.pop(name)
+        plugin.remove_bot_instance(self)
+        self.plugins.pop(name)
+
+    def reload_config(self):
+        self.config.reload()
 
     def reload_and_apply_config(self):
         self.config.reload()
         self.apply_config()
 
-    def load_plugin(self, plugin_config):
+    def reload_plugin(self, name):
+        old_plugin = self.plugins[name]
+        plugin_config = self.config['plugins'][name]
+        plugin = self.load_plugin(plugin_config, reload_module=True)
+        self.plugins[name] = plugin
+        old_plugin.shutdown()
+
+    def load_plugin(self, plugin_config, reload_module=False):
         module_name = plugin_config['module']
         module = importlib.import_module(module_name)
+        if reload_module:
+            reload(module)
         plugin_cls = getattr(module, module.PLUGIN_CLASS)
         return plugin_cls(plugin_config['config'])
 
@@ -108,7 +122,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
                 plugin.apply_config(plugin_config['config'])
             elif load_plugins:
                 plugin = self.load_plugin(plugin_config)
-                self.register_named_plugin(plugin, plugin_name)
+                self.register_plugin(plugin, plugin_name)
 
     def process_message(self, message):
         self.handle_plugins(self.process_message.__name__, message)
