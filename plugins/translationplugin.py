@@ -3,10 +3,8 @@
 
 PLUGIN_CLASS = 'BadTranslatePlugin'
 
-import plugins
 import gtranslate
 import xmpp
-import re
 import random
 import plugins.utils
 
