@@ -163,7 +163,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
             return room_user.jid and room_user.jid.partition('/')[0] in admins
 
 if __name__ == '__main__':
-    DEBUG = True
+    DEBUG = False
     import configobj
     import argparse
     import logging.config
