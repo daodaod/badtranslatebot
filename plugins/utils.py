@@ -11,7 +11,6 @@ def split_by_nickname(text, nickname, make_lower=False):
     if make_lower:
         text = text.lower()
     parts = re.split(r'(%s(?:\W|$)|\w+)' % re.escape(nickname), text, flags=re.UNICODE | re.IGNORECASE)
-    print parts
     nickname_lower = nickname.lower()
     for i, part in enumerate(parts):
         part_lower = part.lower()

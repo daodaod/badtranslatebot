@@ -14,19 +14,10 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
     def should_reply(self, text, my_nickname):
         ''' This routine checks, if bot's nickname is in the text, and if it is, replaces
         it with space.'''
-        text_parts = plugins.utils.split_by_nickname(text, my_nickname)
-        my_nickname_lower = my_nickname.lower()
-        nick_present = False
-        for i, part in enumerate(text_parts):
-            if part.lower() == my_nickname_lower:
-                nick_present = True
-                text_parts[i - 1] = text_parts[i + 1] = u''
-                text_parts[i] = u' '
-        if not nick_present:
-            if random.random() < self.reply_probability:
-                return text
-            return None
-        return u''.join(text_parts)
+        new_text = plugins.utils.remove_nickname(text, my_nickname)
+        if new_text != text or random.random() < self.reply_probability:
+            return new_text
+        return None
 
     def preprocess_text(self, text):
         return text.strip().replace('?', '.')
