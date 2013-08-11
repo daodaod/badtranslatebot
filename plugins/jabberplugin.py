@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import inspect
+import logging
 
 PLUGIN_METHOD_ATTR = '_plugin_method'
 
@@ -41,7 +42,8 @@ class JabberPlugin(object):
     # This allows us to implement logging/stats plugins that log everythin with minor changes.
     always_handle = False
 
-    def __init__(self, config_section):
+    def __init__(self, config_section, logger=None):
+        self.logger = logger or logging.getLogger(__name__)
         self.apply_config(config_section)
         self.bot_instance = None
         self.enabled = True

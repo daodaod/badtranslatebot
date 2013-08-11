@@ -6,6 +6,7 @@ import bot_commands
 import re
 import threadpool
 import traceback
+import logging
 
 class CommandPlugin(plugins.ThreadedPlugin):
     command_prefix = plugins.make_config_property('command_prefix')
@@ -50,15 +51,17 @@ class CommandPlugin(plugins.ThreadedPlugin):
             return
         command = split_text[1][len(self.command_prefix):].lower()
         command_handler = self.command_bindings.get(command, None)
-        if command_handler is None:
-            return
-        left_side = split_text[0].strip().lower()
-        if left_side:
+        left_side = split_text[0]
+
+        if left_side.strip():
             my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
-            if my_nickname.lower() not in re.split(r'(\w+)', left_side, flags=re.UNICODE):
+            parts = plugins.utils.split_by_nickname(left_side, my_nickname, make_lower=True)
+            if len(parts) > 3 or my_nickname.lower() not in parts:
                 return
         args = ''.join(split_text[2:]).strip()
-        print command_handler(command, args, message=message, plugin=self)
+        result = command_handler(command, args, message=message, plugin=self)
+        if result is not None:
+            self.logger.warn('Command_handler for cmd "%s" with args "%s" returned non-None result, possible loss of data, result is %r', command, args, result)
         raise plugins.StanzaProcessed
 
 if __name__ == '__main__':

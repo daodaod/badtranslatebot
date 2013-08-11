@@ -1,0 +1,30 @@
+'''
+Created on 11.08.2013
+
+@author: H
+'''
+
+import re
+
+def split_by_nickname(text, nickname, make_lower=False):
+    # The idea is to catch nickname with non-alphabetic character after it.
+    if make_lower:
+        text = text.lower()
+    parts = re.split(r'(%s(?:\W|$)|\w+)' % re.escape(nickname), text, flags=re.UNICODE | re.IGNORECASE)
+    nickname_lower = nickname.lower()
+    for i, part in enumerate(parts):
+        part_lower = part.lower()
+        # Maybe it's the case when we captured non-alphabetic character?
+        if len(part_lower) == len(nickname_lower) + 1:
+            if part_lower and not part_lower[-1].isalpha():
+                # Append it to the next chunk.
+                part, to_append = part[:-1], part[-1:]
+                parts[i] = part
+                parts[i + 1] = to_append + parts[i + 1]
+    return parts
+
+if __name__ == '__main__':
+
+    parts = split_by_nickname('Hey, Johny-John', 'John', False)
+    print parts
+

@@ -11,16 +11,16 @@ import plugins
 import plugins.commandplugin
 import plugins.commandplugin.bot_commands.management_cmds
 
-# TODO: Add exception handler to plugin handler
-# TODO: Add logging (+ config it)
-# TODO: How about allowing to change and save plugin configuration?
+import logging
+
 # TODO: How about help?
 # TODO: How about comments in config?
 # TODO: Think about django-style plugin reloading (this would allow inheritance for example)
 
 class ExtendableJabberBot(persistentbot.PersistentJabberBot):
-    def __init__(self, username, password, config, res=None, debug=False,
+    def __init__(self, username, password, config, logger=None, res=None, debug=False,
         privatedomain=False, acceptownmsgs=False):
+        self.logger = logger or logging.getLogger(__name__)
         self.config = config
         self.plugins = collections.OrderedDict()  # plugin name -> plugin
         self.threadpool = threadpool.TaskPool(exception_handler=self.threadpool_exc_handler)
@@ -34,7 +34,10 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         self.compulsory_plugins = [("management", management_plugin)]
 
     def threadpool_exc_handler(self, etype, value, tb):
-        traceback.print_exception(etype, value, tb)
+        try:
+            raise etype, value, tb
+        except etype:
+            self.logger.error("Exception happened while serving threadpool task", exc_info=1)
 
     def handle_plugins(self, methodname, *args, **kwargs):
         to_process = [self.compulsory_plugins, self.plugins.iteritems()]
@@ -57,8 +60,8 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         except plugins.StanzaProcessed:
             raise
         except Exception:
-            # TODO: Log this error
-            traceback.print_exc()
+            self.logger.error("Exception happened while serving plugin method %s of plugin %s" % (methodname, name),
+                              exc_info=1)
 
     def register_plugin(self, plugin, name):
         ''' Registers plugin in our bot. If that plugin instance is already registered, do nothing.
@@ -145,22 +148,45 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
     def process_presence(self, presence):
         self.handle_plugins(self.process_presence.__name__, presence)
 
+    def is_from_admin(self, message):
+        room_user = self.get_room_user_by_jid(message.getFrom())
+        admins = self.config['management']['admins']
+        if message.getType() == 'chat' and room_user is None:
+            return message.getFrom().getStripped() in admins
+        else:
+            if room_user is None:
+                return False
+            if room_user.affiliation in self.config['management']['allowed_affiliations']:
+                return True
+            return room_user.jid and room_user.jid.partition('/')[0] in admins
+
 if __name__ == '__main__':
     DEBUG = True
     import configobj
     import argparse
+    import logging.config
+    import os
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+    from validate import Validator
+    validator = Validator()
     parser = argparse.ArgumentParser()
     parser.add_argument("config", help="Configuration file with bot and plugin settings")
+    parser.add_argument("--configspec", help="Configuration specification file used when loading config file",
+                        default='config/config.spec')
+    parser.add_argument("--logconfig", help="Logging config file",
+                        default='config/logging.conf')
     if DEBUG:
         namespace = parser.parse_args(['config/john.config'])
     else:
         namespace = parser.parse_args()
-    config = configobj.ConfigObj(namespace.config)
+    config = configobj.ConfigObj(namespace.config, configspec=namespace.configspec)
+    config.validate(validator)
     acc_info = config['jabber_account']
     login = acc_info['jid']
     password = acc_info['password']
     resource = acc_info.get('resource', None)
-
+    logging.config.fileConfig(namespace.logconfig, disable_existing_loggers=False)
     bot = ExtendableJabberBot(login, password, config, res=resource)
 
     bot.serve_really_forever(traceback.print_exception)

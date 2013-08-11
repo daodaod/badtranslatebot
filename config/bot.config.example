@@ -6,7 +6,8 @@ resource = res
 [management]
   command_prefix = '%'
   allowed_affiliations = ['owner', 'admin']
-  admins = ['admin@example.org']
+  # Trailing comma is important if there is only one item
+  admins = admin@example.org,
 
 [rooms]
    [[room1]]

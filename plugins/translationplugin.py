@@ -8,7 +8,7 @@ import gtranslate
 import xmpp
 import re
 import random
-import threadedplugin
+import plugins.utils
 
 class BadTranslatePlugin(plugins.ThreadedPlugin):
     translations = plugins.make_config_property('translations', int, default=1)
@@ -16,19 +16,11 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
     def should_reply(self, text, my_nickname):
         ''' This routine checks, if bot's nickname is in the text, and if it is, replaces
         it with space.'''
-        # The idea is to catch nickname with non-alphabetic character after it.
-        text_parts = re.split(r'(%s(?:\W|$)|\w+)' % re.escape(my_nickname), text, flags=re.UNICODE | re.IGNORECASE)
-        print '|'.join(text_parts)
+        text_parts = plugins.utils.split_by_nickname(text, my_nickname)
         my_nickname_lower = my_nickname.lower()
         nick_present = False
         for i, part in enumerate(text_parts):
-            part_lower = part.lower()
-            # Maybe it's the case when we captured non-alphabetic character?
-            if len(part_lower) == len(my_nickname_lower) + 1:
-                if part_lower and not part_lower[-1].isalpha():
-                    # Cool, cut it away!
-                    part_lower = part_lower[:-1]
-            if part_lower == my_nickname_lower:
+            if part.lower() == my_nickname_lower:
                 nick_present = True
                 text_parts[i - 1] = text_parts[i + 1] = u''
                 text_parts[i] = u' '
@@ -57,5 +49,5 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
 
     def translate_text(self, text, message):
         result = gtranslate.bad_translate(text, iterations=self.translations)
-        self.bot_instance.send_simple_reply(message, result)
+        self.send_simple_reply(message, result)
 

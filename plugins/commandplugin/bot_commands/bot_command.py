@@ -29,8 +29,7 @@ def command_names(*names):
                 result = func(self, command, args, message, plugin)
             except Exception, ex:
                 result = '%s exception happened while executing "%s" with args "%s", traceback saved into error log.' % (ex.__class__.__name__, command, args)
-                # TODO: Log error
-                print traceback.format_exc()
+                plugin.logger.error("While executing command '%s' with args '%s'", command, args, exc_info=True)
                 error_happened = True
             if isinstance(result, basestring):
                 plugin.send_simple_reply(message, result, include_nick=error_happened)
@@ -89,6 +88,8 @@ class Command(object):
     
     If return value is None, nothing is done '''
 
+    admins = plugins.make_config_property('admins', default=[])
+
     def __init__(self, config_section):
         self.config_section = config_section
 
@@ -102,8 +103,5 @@ class Command(object):
         return result
 
     def _is_from_admin(self, bot_instance, message):
-        if message.getType() == 'chat':
-            # Since here we don't know admin jids
-            return False
-        return bot_instance.get_room_user_by_jid(message.getFrom()).affiliation in ('owner', 'admin')
+        return bot_instance.is_from_admin(message)
 

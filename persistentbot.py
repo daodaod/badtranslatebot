@@ -221,6 +221,8 @@ class PersistentJabberBot(jabberbot.JabberBot):
     def send_simple_reply(self, mess, text, private=False, include_nick=False):
         if include_nick and mess.getType() == 'groupchat':
             text = '%s: %s' % (mess.getFrom().getResource(), text)
+        if mess.getType() == 'chat':
+            private = True
         super(PersistentJabberBot, self).send_simple_reply(mess, text, private=private)
 
     def idle_proc(self):
