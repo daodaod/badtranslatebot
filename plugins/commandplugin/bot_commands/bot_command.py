@@ -3,8 +3,11 @@
 
 import inspect
 import functools
+import plugins
+import traceback
 
 COMMAND_METHOD_ATTR = '_method_commands'
+IS_RETURNED_BY_EXEC_TASK_ATTR = '_is_returned_by_exec_task'
 
 def _add_command_handler(command, method, dct):
     conflicting_method = dct.get(command, None)
@@ -16,10 +19,36 @@ def command_names(*names):
     ''' This decorates all functions that will be registered as commands. 
     names is a list of command names '''
 
-    def decorator(func):
-        setattr(func, COMMAND_METHOD_ATTR, names)
-        return func
+    def decorator(func, add_command_attr=True):
+        if add_command_attr:
+            setattr(func, COMMAND_METHOD_ATTR, names)
+        @functools.wraps(func)
+        def wrapper(self, command, args, message, plugin):
+            error_happened = False
+            try:
+                result = func(self, command, args, message, plugin)
+            except Exception, ex:
+                result = '%s exception happened while executing "%s" with args "%s", traceback saved into error log.' % (ex.__class__.__name__, command, args)
+                # TODO: Log error
+                print traceback.format_exc()
+                error_happened = True
+            if isinstance(result, basestring):
+                plugin.send_simple_reply(message, result, include_nick=error_happened)
+            elif isinstance(result, plugins.ThreadedPluginTask):
+                if getattr(result, IS_RETURNED_BY_EXEC_TASK_ATTR, False):
+                    result.function_to_execute = decorator(result.function_to_execute, add_command_attr=False)
+                if not plugin.add_task(result):
+                    plugin.send_simple_reply("Failed to add your task to queue because of limitations.", include_nick=True)
+        return wrapper
     return decorator
+
+def exec_as_task(func):
+    @functools.wraps(func)
+    def wrapper(self, command, args, message, plugin):
+        task = plugins.ThreadedPluginTask(plugin, func, self, command, args, message, plugin)
+        setattr(task, IS_RETURNED_BY_EXEC_TASK_ATTR, True)
+        return task
+    return wrapper
 
 class CommandConflict(Exception):
     ''' This exception is raised when two methods share same command name '''
@@ -33,12 +62,10 @@ class CommandConflict(Exception):
 
 def admin_only(func):
     @functools.wraps(func)
-    def wrapper(self, command, *args, **kwargs):
-        bot_instance = kwargs['bot_instance']
-        message = kwargs['message']
-        if not self._is_from_admin(bot_instance, message):
+    def wrapper(self, command, args, message, plugin):
+        if not self._is_from_admin(plugin.bot_instance, message):
             return "Sorry, you don't have enough privileges to execute '%s' command." % command
-        return func(self, command, *args, **kwargs)
+        return func(self, command, args, message, plugin)
     return wrapper
 
 class Command(object):

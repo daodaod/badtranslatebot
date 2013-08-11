@@ -5,6 +5,7 @@ import plugins
 import bot_commands
 import re
 import threadpool
+import traceback
 
 class CommandPlugin(plugins.ThreadedPlugin):
     command_prefix = plugins.make_config_property('command_prefix')
@@ -17,7 +18,6 @@ class CommandPlugin(plugins.ThreadedPlugin):
 
     def register_command(self, command):
         ''' Register command in a CommandPlugin. Won't do anything if there are conflicts '''
-
         added_commands = []
         has_failed = False
         try:
@@ -36,13 +36,12 @@ class CommandPlugin(plugins.ThreadedPlugin):
 
     def unregister_command(self, command):
         ''' Unregisters a command. Raises ValueError if this command was not previously registered '''
-
         self.commands_list.remove(command)
         for command_name, method in command.get_registered_commands().iteritems():
             self.command_bindings.pop(command_name)
 
     @plugins.register_plugin_method
-    def process_text_message(self, message, bot_instance, has_subject, is_from_me, **kwargs):
+    def process_text_message(self, message, has_subject, is_from_me, **kwargs):
         if is_from_me or has_subject: return
         from_ = message.getFrom()
         text = message.getBody()
@@ -50,21 +49,16 @@ class CommandPlugin(plugins.ThreadedPlugin):
         if len(split_text) == 1:  # there is even no command prefix
             return
         command = split_text[1][len(self.command_prefix):].lower()
-        method = self.command_bindings.get(command, None)
-        if method is None:
+        command_handler = self.command_bindings.get(command, None)
+        if command_handler is None:
             return
         left_side = split_text[0].strip().lower()
         if left_side:
-            my_nickname = bot_instance.get_my_room_nickname(from_.getStripped())
+            my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
             if my_nickname.lower() not in re.split(r'(\w+)', left_side, flags=re.UNICODE):
                 return
         args = ''.join(split_text[2:]).strip()
-        result = method(command, args, message=message, plugin=self, bot_instance=bot_instance)
-        if isinstance(result, basestring):
-            if result.strip():
-                bot_instance.send_simple_reply(message, result)
-        elif isinstance(result, threadpool.Task):
-            self.add_task(result, bot_instance)
+        print command_handler(command, args, message=message, plugin=self)
         raise plugins.StanzaProcessed
 
 if __name__ == '__main__':

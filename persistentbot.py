@@ -218,6 +218,11 @@ class PersistentJabberBot(jabberbot.JabberBot):
             with self.send_lock:
                 return conn.send(stanza)
 
+    def send_simple_reply(self, mess, text, private=False, include_nick=False):
+        if include_nick and mess.getType() == 'groupchat':
+            text = '%s: %s' % (mess.getFrom().getResource(), text)
+        super(PersistentJabberBot, self).send_simple_reply(mess, text, private=private)
+
     def idle_proc(self):
         super(PersistentJabberBot, self).idle_proc()
         self.check_rooms()
@@ -289,7 +294,6 @@ class PersistentJabberBot(jabberbot.JabberBot):
             if self.connected:
                 self.disconnect()
             self.on_exit()
-
 
     def on_exit(self, wait_for_threadpool=False):
         self.threadpool.stop()

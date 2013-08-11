@@ -39,27 +39,29 @@ class JabberPlugin(object):
     ''' This class is base for all plugins '''
     # If set to True, plugin will handle stanzas even if another handler has raised StanzaProcessed.
     # This allows us to implement logging/stats plugins that log everythin with minor changes.
-    always_handle_messages = False
+    always_handle = False
 
     def __init__(self, config_section):
         self.apply_config(config_section)
-        self.bot_instances = []
+        self.bot_instance = None
         self.enabled = True
+
+    def add_bot_instance(self, bot_instance):
+        if self.bot_instance:
+            return False
+        self.bot_instance = bot_instance
+        return True
+
+    def remove_bot_instance(self, bot_instance):
+        if bot_instance != self.bot_instance:
+            raise ValueError("Can't remove bot_instance because this plugin wasn't registered for this bot")
+        self.bot_instance = None
 
     def enable(self, enabled=True):
         self.enabled = enabled
 
-    def add_bot_instance(self, bot_instance):
-        if bot_instance in self.bot_instances:
-            return False
-        self.bot_instances.append(bot_instance)
-        return True
-
     def apply_config(self, config_section):
         self.config_section = config_section
-
-    def remove_bot_instance(self, bot_instance):
-        self.bot_instances.remove(bot_instance)
 
     def get_registered_methods_names(self):
         ''' Returns list of method's names for which `register_plugin_method` was called. '''
@@ -71,7 +73,12 @@ class JabberPlugin(object):
         return result
 
     def shutdown(self):
+        ''' Called when plugin needs to shut down, e.g, when we need to reload it '''
         pass
+
+    # Shortcuts
+
+    send_simple_reply = property(lambda self:self.bot_instance.send_simple_reply)
 
 
 if __name__ == '__main__':

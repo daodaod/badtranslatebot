@@ -10,8 +10,13 @@ import collections
 import plugins
 import plugins.commandplugin
 import plugins.commandplugin.bot_commands.management_cmds
-import itertools
-import sys
+
+# TODO: Add exception handler to plugin handler
+# TODO: Add logging (+ config it)
+# TODO: How about allowing to change and save plugin configuration?
+# TODO: How about help?
+# TODO: How about comments in config?
+# TODO: Think about django-style plugin reloading (this would allow inheritance for example)
 
 class ExtendableJabberBot(persistentbot.PersistentJabberBot):
     def __init__(self, username, password, config, res=None, debug=False,
@@ -23,6 +28,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         self.apply_config(load_plugins=True)
         management_config = config['management']
         management_plugin = plugins.commandplugin.CommandPlugin(management_config)
+        management_plugin.add_bot_instance(self)
         management_command = plugins.commandplugin.bot_commands.management_cmds.ManagementCommands(management_config)
         management_plugin.register_command(management_command)
         self.compulsory_plugins = [("management", management_plugin)]
@@ -35,7 +41,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         stanza_processed = False
         for plugin_items in to_process:
             for name, plugin in plugin_items:
-                if not plugin.enabled or (stanza_processed and not plugin.always_handle_messages):
+                if not plugin.enabled or (stanza_processed and not plugin.always_handle):
                     continue
                 try:
                     self.handle_plugin_method(name, plugin, methodname, *args, **kwargs)
@@ -46,7 +52,6 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         func = getattr(plugin, methodname, None)
         if func is None or (not plugins.is_registered_method(func)):
             return
-        kwargs['bot_instance'] = self
         try:
             func(*args, **kwargs)
         except plugins.StanzaProcessed:

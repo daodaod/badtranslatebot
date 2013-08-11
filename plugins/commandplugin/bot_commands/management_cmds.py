@@ -4,15 +4,15 @@ Created on 08.08.2013
 @author: H
 '''
 import plugins
-from bot_command import Command, command_names, admin_only
+from bot_command import Command, command_names, admin_only, exec_as_task
 
 class ManagementCommands(Command):
     admins = plugins.make_config_property('admins', default=[])
 
-    @admin_only
     @command_names('enable', 'disable')
-    def enable_disable(self, command, args, bot_instance, **kwargs):
-        return self.enable_plugin(bot_instance, args, enabled=(command == 'enable'))
+    @admin_only
+    def enable_disable_plugin(self, command, args, message, plugin):
+        return self.enable_plugin(plugin.bot_instance, name=args, enabled=(command == 'enable'))
 
     def enable_plugin(self, bot_instance, name, enabled=True):
         try:
@@ -22,30 +22,31 @@ class ManagementCommands(Command):
         else:
             return ('Enabled' if enabled else 'Disabled') + ' %s' % name
 
-    @admin_only
     @command_names('plugins')
-    def list_plugins(self, command, args, bot_instance, **kwargs):
-        disabled_str = lambda plug:('' if plug.enabled else ' (disabled)')
-        return ', '.join((name + disabled_str(plugin))
-                         for name, plugin in bot_instance.plugins.iteritems())
-
     @admin_only
+    @exec_as_task
+    def list_plugins(self, command, args, message, plugin):
+        disabled_str = lambda plug:('' if plug.enabled else ' (disabled)')
+        return ', '.join((name + disabled_str(plugin_obj))
+                         for name, plugin_obj in plugin.bot_instance.plugins.iteritems())
+
     @command_names('reload', 'reloadall')
-    def reload_plugins(self, command, args, bot_instance, **kwargs):
+    @admin_only
+    def reload_plugins(self, command, args, message, plugin):
         if command == 'realodall':
-            plugin_names = bot_instance.plugins.iterkeys()
+            plugin_names = plugin.bot_instance.plugins.iterkeys()
         else:
-            if args not in bot_instance.plugins:
+            if args not in plugin.bot_instance.plugins:
                 return 'No such plugin: "%s"' % args
             plugin_names = [args]
-        bot_instance.reload_config()
+        plugin.bot_instance.reload_config()
         for name in plugin_names:
-            bot_instance.reload_plugin(name)
+            plugin.bot_instance.reload_plugin(name)
 
-    @admin_only
     @command_names('reloadconf')
-    def reload_config(self, command, args, bot_instance, **kwargs):
-        bot_instance.reload_and_apply_config()
+    @admin_only
+    def reload_config(self, command, args, message, plugin):
+        plugin.bot_instance.reload_and_apply_config()
 
     def _is_from_admin(self, bot_instance, message):
         if super(ManagementCommands, self)._is_from_admin(bot_instance, message):

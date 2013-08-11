@@ -8,6 +8,7 @@ import gtranslate
 import xmpp
 import re
 import random
+import threadedplugin
 
 class BadTranslatePlugin(plugins.ThreadedPlugin):
     translations = plugins.make_config_property('translations', int, default=1)
@@ -41,26 +42,20 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
         return text.strip().replace('?', '.')
 
     @plugins.register_plugin_method
-    def process_text_message(self, message, bot_instance, has_subject, is_from_me, is_groupchat):
+    def process_text_message(self, message, has_subject, is_from_me, is_groupchat):
         if has_subject or is_from_me or (not is_groupchat):
             return
-        print "HERE I AM"
         assert isinstance(message, xmpp.Message)
         from_ = message.getFrom()
         text = message.getBody()
-        my_nickname = bot_instance.get_my_room_nickname(from_.getStripped())
+        my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
         text = self.preprocess_text(text)
         text = (self.should_reply(text, my_nickname) or '').strip()
-        print text
         if not text:
             return
-        task = plugins.ThreadedPluginTask(self, bot_instance, message, self.translate_text)
-        task.set_args_kwargs(text)
-        self.add_task(task, bot_instance)
+        self.add_task(plugins.ThreadedPluginTask(self, self.translate_text, text, message))
 
-    def translate_text(self, text):
-        print self.translations
-        return gtranslate.bad_translate(text, iterations=self.translations)
+    def translate_text(self, text, message):
+        result = gtranslate.bad_translate(text, iterations=self.translations)
+        self.bot_instance.send_simple_reply(message, result)
 
-    def on_task_result(self, task, translation):
-        task.bot_instance.send_simple_reply(task.message, translation)
