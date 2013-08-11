@@ -34,6 +34,11 @@ def remove_nickname_from_list(parts, nickname):
 def remove_nickname(text, nickname):
     return remove_nickname_from_list(split_by_nickname(text, nickname), nickname)
 
+def is_message_for_me(text, nickname):
+    ''' Return text with nickname removed if nickname is present. Return None otherwise. '''
+    new_text = remove_nickname(text, nickname)
+    return new_text if (new_text != text) else None
+
 if __name__ == '__main__':
 
     # parts = split_by_nickname('Hey, Johny-John', 'John', False)

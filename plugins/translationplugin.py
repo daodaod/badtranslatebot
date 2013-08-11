@@ -11,13 +11,6 @@ import plugins.utils
 class BadTranslatePlugin(plugins.ThreadedPlugin):
     translations = plugins.make_config_property('translations', int, default=1)
     reply_probability = plugins.make_config_property('reply_probability', float, default=0)
-    def should_reply(self, text, my_nickname):
-        ''' This routine checks, if bot's nickname is in the text, and if it is, replaces
-        it with space.'''
-        new_text = plugins.utils.remove_nickname(text, my_nickname)
-        if new_text != text or random.random() < self.reply_probability:
-            return new_text
-        return None
 
     def preprocess_text(self, text):
         return text.strip().replace('?', '.')
@@ -31,10 +24,11 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
         text = message.getBody()
         my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
         text = self.preprocess_text(text)
-        text = (self.should_reply(text, my_nickname) or '').strip()
-        if not text:
-            return
-        self.add_task(plugins.ThreadedPluginTask(self, self.translate_text, text, message))
+        new_text = plugins.utils.is_message_for_me(text, my_nickname)
+        if new_text is None and random.random() < self.reply_probability:
+            new_text = text
+        if not new_text: return
+        self.add_task(plugins.ThreadedPluginTask(self, self.translate_text, new_text, message))
 
     def translate_text(self, text, message):
         result = gtranslate.bad_translate(text, iterations=self.translations)
