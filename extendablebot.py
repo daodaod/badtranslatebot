@@ -97,6 +97,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         old_plugin.shutdown()
 
     def load_plugin(self, plugin_config, reload_module=False):
+        print plugin_config
         module_name = plugin_config['module']
         module = importlib.import_module(module_name)
         if reload_module:
@@ -124,6 +125,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
     def apply_plugins_config(self, plugins_config, load_plugins=False):
         ''' This routine only applies configuration from configobj to existing plugins. It doesn't load/unload/reload plugins. '''
         for plugin_name in plugins_config.sections:
+            print plugin_name
             plugin_config = plugins_config[plugin_name]
             if plugin_name in self.plugins:
                 plugin = self.plugins[plugin_name]
@@ -166,10 +168,7 @@ if __name__ == '__main__':
     import argparse
     import logging.config
     import os
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-    from validate import Validator
-    validator = Validator()
+    import StringIO
     parser = argparse.ArgumentParser()
     parser.add_argument("config", help="Configuration file with bot and plugin settings")
     parser.add_argument("--configspec", help="Configuration specification file used when loading config file",
@@ -177,16 +176,21 @@ if __name__ == '__main__':
     parser.add_argument("--logconfig", help="Logging config file",
                         default='config/logging.conf')
     if DEBUG:
-        namespace = parser.parse_args(['config/john.config'])
+        namespace = parser.parse_args(['config/alice.config'])
     else:
         namespace = parser.parse_args()
-    config = configobj.ConfigObj(namespace.config, configspec=namespace.configspec)
-    config.validate(validator)
+    config = configobj.ConfigObj(namespace.config)
     acc_info = config['jabber_account']
     login = acc_info['jid']
     password = acc_info['password']
     resource = acc_info.get('resource', None)
-    logging.config.fileConfig(namespace.logconfig, disable_existing_loggers=False)
+    logging_folder = config['logging']['folder']
+    if not os.path.exists(logging_folder):
+        os.makedirs(logging_folder)
+    with open(namespace.logconfig, "rb") as f:
+        data = f.read().replace("{{LOG_DIRECTORY}}", logging_folder)
+    buf = StringIO.StringIO(data)
+    logging.config.fileConfig(buf, disable_existing_loggers=False)
     bot = ExtendableJabberBot(login, password, config, res=resource)
 
     bot.serve_really_forever(traceback.print_exception)

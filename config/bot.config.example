@@ -3,6 +3,9 @@ jid = example@example.org
 password = passw0rd
 resource = res
 
+[logging]
+  folder=/path/to/log/dir
+
 [management]
   command_prefix = '%'
   allowed_affiliations = ['owner', 'admin']
