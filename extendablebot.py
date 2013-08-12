@@ -63,13 +63,13 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
             self.logger.error("Exception happened while serving plugin method %s of plugin %s" % (methodname, name),
                               exc_info=1)
 
-    def register_plugin(self, plugin, name):
+    def register_plugin(self, plugin, name, re_register=False):
         ''' Registers plugin in our bot. If that plugin instance is already registered, do nothing.
         Warning! Order in which you register plugins matters. Plugin methods will be called directly in that
         order. So, the most important plugins e.g. logging should be registered first since other plugins
         may stop processing cycle by raising StanzaProcessed exception.
         If name is None, '''
-        if name in self.plugins:
+        if name in self.plugins and not re_register:
             return False
         if not plugin.add_bot_instance(self):
             return False
@@ -93,7 +93,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         old_plugin = self.plugins[name]
         plugin_config = self.config['plugins'][name]
         plugin = self.load_plugin(plugin_config, reload_module=True)
-        self.register_plugin(plugin, name)
+        self.register_plugin(plugin, name, re_register=True)
         old_plugin.shutdown()
 
     def load_plugin(self, plugin_config, reload_module=False):
