@@ -18,19 +18,20 @@ class PluggedChatter(chatvdvoem.Chatter):
         self.plugin = plugin
 
     def on_message(self, message):
-        self.plugin.bot_instance.send(self.room_jid, message, message_type='groupchat')
+        self.plugin.send(self.room_jid, message, message_type='groupchat')
 
     def on_start_chat(self):
-        self.plugin.bot_instance.send(self.room_jid, u"/me Воплотился", message_type='groupchat')
+        self.plugin.send(self.room_jid, u"/me Воплотился", message_type='groupchat')
 
     def on_shutdown(self):
-        self.plugin.bot_instance.send(self.room_jid, "/me Выветрился", message_type='groupchat')
+        self.plugin.send(self.room_jid, "/me Выветрился", message_type='groupchat')
 
 
 class ChatvdvoemPlugin(plugins.ThreadedPlugin):
     def __init__(self, config_section):
         super(ChatvdvoemPlugin, self).__init__(config_section)
         self.chatvdvoem_instance = None
+        self.reply_prefix = ''
 
     def chatvdvoem_runner(self):
         self.chatvdvoem_instance = chatvdvoem.Chatter(chatkey.get_chat_key)
@@ -51,6 +52,20 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
             self.logger.error("Exception happened while serving chatvdvoem conversation", exc_info=1)
         self.chatvdvoem_instance = None
 
+    def shutdown(self):
+        self.kill_chatvdvoem()
+
+    def send(self, room_jid, text, message_type):
+        text = self.reply_prefix + text
+        self.bot_instance.send(room_jid, text, message_type=message_type)
+
+    def kill_chatvdvoem(self):
+        chatvdvoem_instance = self.chatvdvoem_instance
+        if chatvdvoem_instance is None:
+            return
+        chatvdvoem_instance.send_stop_chat()
+        chatvdvoem_instance.quit()
+
     @plugins.register_plugin_method
     def process_text_message(self, message, has_subject, is_from_me, is_groupchat):
         if has_subject or is_from_me or (not is_groupchat):
@@ -64,10 +79,11 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
             return
         new_text = ''.join(text_parts[3:])
         if new_text.strip() == 'please_stop':
-            chatvdvoem_instance = self.chatvdvoem_instance
-            if chatvdvoem_instance is None:
-                return
-            chatvdvoem_instance.send_stop_chat()
-            chatvdvoem_instance.quit()
+            self.kill_chatvdvoem()
             return
+        elif new_text:
+            cmd, _, pref = new_text.partition()
+            if cmd == 'set_prefix':
+                self.reply_prefix = pref
+                return
         self.add_pending_message(new_text, from_.getStripped())
