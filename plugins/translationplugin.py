@@ -28,9 +28,9 @@ class BadTranslatePlugin(plugins.ThreadedPlugin):
         if new_text is None and random.random() < self.reply_probability:
             new_text = text
         if not new_text: return
-        self.add_task(plugins.ThreadedPluginTask(self, self.translate_text, new_text, message))
+        self.add_task(plugins.ThreadedPluginTask(self, self.translate_text, new_text, message, include_nick=True))
 
-    def translate_text(self, text, message):
+    def translate_text(self, text, message, include_nick):
         result = gtranslate.bad_translate(text, iterations=self.translations)
-        self.send_simple_reply(message, result)
+        self.send_simple_reply(message, result, include_nick=True)
 
