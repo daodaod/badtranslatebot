@@ -93,7 +93,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         old_plugin = self.plugins[name]
         plugin_config = self.config['plugins'][name]
         plugin = self.load_plugin(plugin_config, reload_module=True)
-        self.plugins[name] = plugin
+        self.register_plugin(plugin, name)
         old_plugin.shutdown()
 
     def load_plugin(self, plugin_config, reload_module=False):
