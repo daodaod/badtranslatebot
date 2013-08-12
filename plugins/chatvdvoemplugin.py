@@ -56,7 +56,8 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
         self.kill_chatvdvoem()
 
     def send(self, room_jid, text, message_type):
-        text = self.reply_prefix + text
+        if not text.startswith("/me "):
+            text = self.reply_prefix + text
         self.bot_instance.send(room_jid, text, message_type=message_type)
 
     def kill_chatvdvoem(self):
@@ -82,7 +83,7 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
             self.kill_chatvdvoem()
             return
         elif new_text:
-            cmd, _, pref = new_text.partition()
+            cmd, _, pref = new_text.partition(' ')
             if cmd == 'set_prefix':
                 self.reply_prefix = pref
                 return
