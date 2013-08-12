@@ -20,12 +20,13 @@ import logging
 class ExtendableJabberBot(persistentbot.PersistentJabberBot):
     def __init__(self, username, password, config, logger=None, res=None, debug=False,
         privatedomain=False, acceptownmsgs=False):
+        super(ExtendableJabberBot, self).__init__(username, password, res=res, debug=debug, privatedomain=privatedomain, acceptownmsgs=acceptownmsgs)
         self.logger = logger or logging.getLogger(__name__)
         self.config = config
         self.plugins = collections.OrderedDict()  # plugin name -> plugin
+        self.commands = collections.OrderedDict()  # command name -> command
         self.threadpool = threadpool.TaskPool(exception_handler=self.threadpool_exc_handler)
-        super(ExtendableJabberBot, self).__init__(username, password, res=res, debug=debug, privatedomain=privatedomain, acceptownmsgs=acceptownmsgs)
-        self.apply_config(load_plugins=True)
+        self.apply_config(load_plugins=True, load_commands=True)
         management_config = config['management']
         management_plugin = plugins.commandplugin.CommandPlugin(management_config)
         management_plugin.add_bot_instance(self)
@@ -63,24 +64,25 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
             self.logger.error("Exception happened while serving plugin method %s of plugin %s" % (methodname, name),
                               exc_info=1)
 
-    def register_plugin(self, plugin, name, re_register=False):
+    def register_module(self, module, name, modules_dict, re_register=False):
         ''' Registers plugin in our bot. If that plugin instance is already registered, do nothing.
         Warning! Order in which you register plugins matters. Plugin methods will be called directly in that
         order. So, the most important plugins e.g. logging should be registered first since other plugins
         may stop processing cycle by raising StanzaProcessed exception.
         If name is None, '''
-        if name in self.plugins and not re_register:
+        if name in modules_dict and not re_register:
             return False
-        if not plugin.add_bot_instance(self):
+        if not module.add_bot_instance(self):
             return False
-        self.plugins[name] = plugin
+        modules_dict[name] = module
         return True
 
-    def unregister_plugin(self, name):
+    def unregister_module(self, name, modules_dict):
         ''' Unregisters plugin from our bot. Raises ValueError if plugin was not registered previously '''
-        plugin = self.plugins[name]
-        plugin.remove_bot_instance(self)
-        self.plugins.pop(name)
+        module = modules_dict[name]
+        module.shutdown()
+        module.remove_bot_instance(self)
+        modules_dict.pop(name)
 
     def reload_config(self):
         self.config.reload()
@@ -89,50 +91,59 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         self.config.reload()
         self.apply_config()
 
-    def reload_plugin(self, name):
-        old_plugin = self.plugins[name]
-        plugin_config = self.config['plugins'][name]
-        plugin = self.load_plugin(plugin_config, reload_module=True)
-        self.register_plugin(plugin, name, re_register=True)
-        old_plugin.shutdown()
-
-    def load_plugin(self, plugin_config, reload_module=False):
-        print plugin_config
-        module_name = plugin_config['module']
+    def load_module_class(self, module_name, reload_module=False):
         module = importlib.import_module(module_name)
         if reload_module:
             reload(module)
-        plugin_cls = getattr(module, module.PLUGIN_CLASS)
-        return plugin_cls(plugin_config['config'])
+        module_cls = getattr(module, module.KLASS)
+        return module_cls
+
+    def load_module(self, module_config, reload_module=False):
+        module_cls = self.load_module_class(module_config['module'], reload_module=reload_module)
+        return module_cls(module_config['config'])
+
+    def reload_module(self, name, modules_dict, module_config):
+        old_module = modules_dict[name]
+        module = self.load_module(module_config, reload_module=True)
+        self.register_module(module, name, modules_dict, re_register=True)
+        old_module.shutdown()
 
     def enable_plugin(self, name, enabled=True):
-        plugin = self.plugins[name]
-        plugin.enable(enabled)
+        self.enable_module(name, self.plugins, enabled)
 
-    def apply_config(self, load_plugins=False):
+    def enable_module(self, name, modules_dict, enabled=True):
+        module = modules_dict[name]
+        module.enable(enabled)
+
+    def apply_config(self, load_plugins=False, load_commands=False):
         ''' Applies config to bot, if load_plugins is True, it loads plugins that aren't loaded yet '''
         # rooms
         rooms_config = self.config['rooms']
         for name, room in rooms_config.iteritems():
             self.add_room(room['jid'], room['nickname'], room.get('password'))
+        # commands, general options
+        commands_config = self.config.get('commands')
+        if commands_config:
+            # commands
+            self.apply_modules_config(commands_config, self.commands, load_commands)
         # plugins general options
-        plugins_config = self.config['plugins']
-        workers_num = plugins_config.as_int('pool_workers')
-        self.threadpool.resize_workers(workers_num)
-        # plugins
-        self.apply_plugins_config(plugins_config, load_plugins)
+        plugins_config = self.config.get('plugins')
+        if plugins_config:
+            workers_num = plugins_config.as_int('pool_workers')
+            self.threadpool.resize_workers(workers_num)
+            # plugins
+            self.apply_modules_config(plugins_config, self.plugins, load_plugins)
 
-    def apply_plugins_config(self, plugins_config, load_plugins=False):
+    def apply_modules_config(self, modules_config, modules_dict, load_modules=False):
         ''' This routine only applies configuration from configobj to existing plugins. It doesn't load/unload/reload plugins. '''
-        for plugin_name in plugins_config.sections:
-            print plugin_name
-            plugin_config = plugins_config[plugin_name]
-            if plugin_name in self.plugins:
-                plugin = self.plugins[plugin_name]
-                plugin.apply_config(plugin_config['config'])
-            elif load_plugins:
-                plugin = self.load_plugin(plugin_config)
-                self.register_plugin(plugin, plugin_name)
+        for module_name in modules_config.sections:
+            module_config = modules_config[module_name]
+            if module_name in modules_dict:
+                module = modules_dict[module_name]
+                module.apply_config(module_config['config'])
+            elif load_modules:
+                module = self.load_module(module_config)
+                self.register_module(module, module_name, modules_dict)
 
     def process_message(self, message):
         self.handle_plugins(self.process_message.__name__, message)
@@ -163,7 +174,7 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
             return room_user.jid and room_user.jid.partition('/')[0] in admins
 
 if __name__ == '__main__':
-    DEBUG = False
+    DEBUG = True
     import configobj
     import argparse
     import logging.config

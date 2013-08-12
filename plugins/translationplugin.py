@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-PLUGIN_CLASS = 'BadTranslatePlugin'
+KLASS = 'BadTranslatePlugin'
 
 import gtranslate
 import xmpp
@@ -9,8 +9,8 @@ import random
 import plugins.utils
 
 class BadTranslatePlugin(plugins.ThreadedPlugin):
-    translations = plugins.make_config_property('translations', int, default=1)
-    reply_probability = plugins.make_config_property('reply_probability', float, default=0)
+    translations = plugins.make_config_property('translations', int, default=lambda:1)
+    reply_probability = plugins.make_config_property('reply_probability', float, default=lambda:0)
 
     def preprocess_text(self, text):
         return text.strip().replace('?', '.')

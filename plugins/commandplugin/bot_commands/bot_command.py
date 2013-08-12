@@ -67,7 +67,7 @@ def admin_only(func):
         return func(self, command, args, message, plugin)
     return wrapper
 
-class Command(object):
+class Command(plugins.bot_module.BotModule):
     ''' This class is base for all bot commands 
     
     Example command:
@@ -88,10 +88,10 @@ class Command(object):
     
     If return value is None, nothing is done '''
 
-    admins = plugins.make_config_property('admins', default=[])
+    admins = plugins.make_config_property('admins', default=lambda:[])
 
-    def __init__(self, config_section):
-        self.config_section = config_section
+    def __init__(self, config_section, logger=None):
+        super(Command, self).__init__(config_section, logger=logger)
 
     def get_registered_commands(self):
         result = {}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-PLUGIN_CLASS = 'ChatvdvoemPlugin'
+KLASS = 'ChatvdvoemPlugin'
 
 import xmpp
 import plugins.utils
@@ -18,20 +18,20 @@ class PluggedChatter(chatvdvoem.Chatter):
         self.plugin = plugin
 
     def on_message(self, message):
-        self.plugin.send(self.room_jid, message, message_type='groupchat')
+        self.plugin.send(self.room_jid, message, event='message')
 
     def on_start_chat(self):
-        self.plugin.send(self.room_jid, u"/me Воплотился", message_type='groupchat')
+        self.plugin.send(self.room_jid, u"/me Воплотился", event='start_chat')
 
     def on_shutdown(self):
-        self.plugin.send(self.room_jid, "/me Выветрился", message_type='groupchat')
+        self.plugin.send_message(self.room_jid, "/me Выветрился", event='stop_chat')
 
 
 class ChatvdvoemPlugin(plugins.ThreadedPlugin):
     def __init__(self, config_section):
         super(ChatvdvoemPlugin, self).__init__(config_section)
         self.chatvdvoem_instance = None
-        self.reply_prefix = ''
+        self.commutated = set([u'ЛисаАлиса', u'Боб'])
 
     def chatvdvoem_runner(self):
         self.chatvdvoem_instance = chatvdvoem.Chatter(chatkey.get_chat_key)
@@ -55,10 +55,17 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
     def shutdown(self):
         self.kill_chatvdvoem()
 
-    def send(self, room_jid, text, message_type):
-        if not text.startswith("/me "):
-            text = self.reply_prefix + text
-        self.bot_instance.send(room_jid, text, message_type=message_type)
+    def send(self, room_jid, text, event):
+        message = self.bot_instance.build_message(text)
+        message.setTo(room_jid)
+        message.setType('groupchat')
+        commutated_tag = message.addChild('chatvdvoem')
+        commutated_tag.setAttr('event', event)
+        if event == 'message':
+            for nick in self.commutated:
+                child = commutated_tag.addChild('nickname')
+                child.setData(nick)
+        self.bot_instance.send_message(message)
 
     def kill_chatvdvoem(self):
         chatvdvoem_instance = self.chatvdvoem_instance
@@ -66,6 +73,14 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
             return
         chatvdvoem_instance.send_stop_chat()
         chatvdvoem_instance.quit()
+
+    def is_commutated_to_me(self, message, my_nickname):
+        commutated_tag = message.getTag('chatvdvoem')
+        if not commutated_tag: return False
+        for tag in commutated_tag.getTags('nickname'):
+            if tag.getData() == my_nickname:
+                return True
+        return False
 
     @plugins.register_plugin_method
     def process_text_message(self, message, has_subject, is_from_me, is_groupchat):
@@ -75,16 +90,9 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
         from_ = message.getFrom()
         text = message.getBody()
         my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
-        text_parts = plugins.utils.split_by_nickname(text, my_nickname)
-        if len(text_parts) <= 3 or text_parts[1].lower() != my_nickname.lower():
-            return
-        new_text = ''.join(text_parts[3:])
-        if new_text.strip() == 'please_stop':
-            self.kill_chatvdvoem()
-            return
-        elif new_text:
-            cmd, _, pref = new_text.partition(' ')
-            if cmd == 'set_prefix':
-                self.reply_prefix = pref
+        if not self.is_commutated_to_me(message, my_nickname):
+            text_parts = plugins.utils.split_by_nickname(text, my_nickname)
+            if len(text_parts) <= 3 or text_parts[1].lower() != my_nickname.lower():
                 return
-        self.add_pending_message(new_text, from_.getStripped())
+            text = ''.join(text_parts[3:])
+        self.add_pending_message(text, from_.getStripped())

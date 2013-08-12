@@ -3,7 +3,8 @@ Created on 08.08.2013
 
 @author: H
 '''
-import plugins
+KLASS = 'ManagementCommands'
+
 from bot_command import Command, command_names, admin_only, exec_as_task
 
 class ManagementCommands(Command):

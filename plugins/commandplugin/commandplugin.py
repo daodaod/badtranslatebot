@@ -1,21 +1,29 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+
 import plugins
 import bot_commands
 import re
-import threadpool
-import traceback
-import logging
+
 
 class CommandPlugin(plugins.ThreadedPlugin):
     command_prefix = plugins.make_config_property('command_prefix')
-    def __init__(self, config_section):
-        super(CommandPlugin, self).__init__(config_section)
+    commands = plugins.make_config_property('commands', default=lambda:[])
+    def __init__(self, config_section, logger=None):
+        super(CommandPlugin, self).__init__(config_section, logger=logger)
         self.command_bindings = {}
         self.commands_list = []
         self.command_re = re.compile(r'(%s\w+)' % re.escape(self.command_prefix), flags=re.UNICODE)
 
+    def on_add_bot_instance(self, bot_instance):
+        for command_name in self.commands:
+            self.register_command(self.bot_instance.commands[command_name])
+
+    def on_remove_bot_instance(self, bot_instance):
+        for command in self.commands[:]:
+            self.unregister_command(command)
 
     def register_command(self, command):
         ''' Register command in a CommandPlugin. Won't do anything if there are conflicts '''

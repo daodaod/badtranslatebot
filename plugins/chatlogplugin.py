@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-PLUGIN_CLASS = 'ChatlogPlugin'
+KLASS = 'ChatlogPlugin'
 
 import plugins
 import os

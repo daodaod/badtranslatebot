@@ -1,2 +1,2 @@
 from commandplugin import CommandPlugin
-PLUGIN_CLASS = 'CommandPlugin'
+KLASS = 'CommandPlugin'
