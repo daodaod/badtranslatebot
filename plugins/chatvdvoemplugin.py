@@ -25,7 +25,7 @@ class PluggedChatter(chatvdvoem.Chatter):
         self.plugin.send(self.room_jid, u"/me Воплотился", event='start_chat')
 
     def on_shutdown(self):
-        self.plugin.send_message(self.room_jid, "/me Выветрился", event='stop_chat')
+        self.plugin.send(self.room_jid, "/me Выветрился", event='stop_chat')
 
 
 class ChatvdvoemPlugin(plugins.ThreadedPlugin):
