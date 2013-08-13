@@ -13,9 +13,9 @@ class ManagementCommands(Command):
     def enable_disable_plugin(self, command, args, message, plugin):
         return self.enable_plugin(plugin.bot_instance, name=args, enabled=(command == 'enable'))
 
-    def enable_plugin(self, bot_instance, name, enabled=True):
+    def enable_plugin(self, name, enabled=True):
         try:
-            bot_instance.enable_plugin(name, enabled)
+            self.bot_instance.enable_plugin(name, enabled)
         except KeyError:
             return 'No such plugin: "%s"' % name
         else:
@@ -41,8 +41,10 @@ class ManagementCommands(Command):
         plugin.bot_instance.reload_config()
         for name in plugin_names:
             plugin.bot_instance.reload_plugin(name)
+        return "Reloaded"
 
     @command_names('reloadconf')
     @admin_only
     def reload_config(self, command, args, message, plugin):
-        plugin.bot_instance.reload_and_apply_config()
+        self.bot_instance.reload_and_apply_config()
+        return "Reloaded config"

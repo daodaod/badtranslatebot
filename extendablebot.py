@@ -108,6 +108,10 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         self.register_module(module, name, modules_dict, re_register=True)
         old_module.shutdown()
 
+    def reload_plugin(self, name):
+        plugin_config = self.config['plugins'][name]
+        self.reload_module(name, self.plugins, plugin_config)
+
     def enable_plugin(self, name, enabled=True):
         self.enable_module(name, self.plugins, enabled)
 
@@ -181,12 +185,12 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
             return room_user.jid and room_user.jid.partition('/')[0] in admins
 
 if __name__ == '__main__':
-    DEBUG = False
     import configobj
     import argparse
     import logging.config
     import os
     import StringIO
+    DEBUG = os.path.exists('debug.config')
     parser = argparse.ArgumentParser()
     parser.add_argument("config", help="Configuration file with bot and plugin settings")
     parser.add_argument("--configspec", help="Configuration specification file used when loading config file",
