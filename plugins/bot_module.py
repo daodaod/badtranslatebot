@@ -48,5 +48,8 @@ class BotModule(object):
         ''' Called when module needs to shut down, e.g, when we need to reload it '''
         pass
 
+    def idle_proc(self):
+        pass
+
     def apply_config(self, config_section):
         self.config_section = config_section

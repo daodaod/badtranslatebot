@@ -161,6 +161,13 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
     def process_presence(self, presence):
         self.handle_plugins(self.process_presence.__name__, presence)
 
+    def idle_proc(self):
+        super(ExtendableJabberBot, self).idle_proc()
+        for plugin_name, plugin in self.plugins.iteritems():
+            plugin.idle_proc()
+        for command_name, command in self.commands.iteritems():
+            command.idle_proc()
+
     def is_from_admin(self, message):
         room_user = self.get_room_user_by_jid(message.getFrom())
         admins = self.config['management']['admins']

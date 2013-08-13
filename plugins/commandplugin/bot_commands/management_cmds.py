@@ -8,7 +8,7 @@ KLASS = 'ManagementCommands'
 from bot_command import Command, command_names, admin_only, exec_as_task
 
 class ManagementCommands(Command):
-    @command_names('enable', 'disable')
+    @command_names(['enable', 'disable'])
     @admin_only
     def enable_disable_plugin(self, command, args, message, plugin):
         return self.enable_plugin(plugin.bot_instance, name=args, enabled=(command == 'enable'))
@@ -29,7 +29,7 @@ class ManagementCommands(Command):
         return ', '.join((name + disabled_str(plugin_obj))
                          for name, plugin_obj in plugin.bot_instance.plugins.iteritems())
 
-    @command_names('reload', 'reloadall')
+    @command_names(['reload', 'reloadall'])
     @admin_only
     def reload_plugins(self, command, args, message, plugin):
         if command == 'realodall':

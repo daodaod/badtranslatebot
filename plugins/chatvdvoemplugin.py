@@ -6,6 +6,7 @@ KLASS = 'ChatvdvoemPlugin'
 import xmpp
 import plugins.utils
 import sys
+import time
 import threading
 sys.path.append('../chatvdvoem-client')
 import chatvdvoem
@@ -28,22 +29,28 @@ class PluggedChatter(chatvdvoem.Chatter):
 
 
 class ChatvdvoemPlugin(plugins.ThreadedPlugin):
+
     def __init__(self, config_section):
         super(ChatvdvoemPlugin, self).__init__(config_section)
         self.chatvdvoem_instance = None
-        self.commutated = set([u'ЛисаАлиса', u'Боб'])
+        self.commutated = set()
+        self.last_message_time = time.time()
+        self.room_jid = None
 
     def chatvdvoem_runner(self):
         self.chatvdvoem_instance = chatvdvoem.Chatter(chatkey.get_chat_key)
 
-    def add_pending_message(self, text, room_jid):
+    def instantiate_chatvdvoem_instance(self, room_jid):
         chatvdvoem_instance = self.chatvdvoem_instance
         if chatvdvoem_instance is None:
             self.chatvdvoem_instance = chatvdvoem_instance = PluggedChatter(chatkey.get_chat_key, room_jid=room_jid, plugin=self)
             self.chatvdvoem_thread = threading.Thread(target=self.serve_chatvdvoem_conversation, args=(chatvdvoem_instance,))
             self.chatvdvoem_thread.setDaemon(True)
             self.chatvdvoem_thread.start()
-        chatvdvoem_instance.send_message(text)
+        return chatvdvoem_instance
+
+    def add_pending_message(self, text, room_jid):
+        self.instantiate_chatvdvoem_instance(room_jid).send_message(text)
 
     def serve_chatvdvoem_conversation(self, instance):
         try:
@@ -82,12 +89,23 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
                 return True
         return False
 
+    def idle_proc(self):
+        current_time = time.time()
+        if current_time - self.last_message_time > 60 * 10:
+            if self.room_jid:
+                self.instantiate_chatvdvoem_instance(self.room_jid)
+
+
     @plugins.register_plugin_method
     def process_text_message(self, message, has_subject, is_from_me, is_groupchat):
-        if has_subject or is_from_me or (not is_groupchat):
+        if has_subject or (not is_groupchat):
+            return
+        self.last_message_time = time.time()
+        if is_from_me:
             return
         assert isinstance(message, xmpp.Message)
         from_ = message.getFrom()
+        self.room_jid = from_.getStripped()
         text = message.getBody()
         my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
         if not self.is_commutated_to_me(message, my_nickname):

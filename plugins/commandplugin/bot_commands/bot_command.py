@@ -4,7 +4,30 @@
 import inspect
 import functools
 import plugins
-import traceback
+import shlex
+import argparse
+
+def shlex_split(s, comments=False, posix=True):
+    ''' Shlex wrapper to add unicode support '''
+    is_unicode = False
+    if isinstance(s, unicode):
+        s = s.encode('utf-8')
+        is_unicode = True
+    result = shlex.split(s, comments=comments, posix=posix)
+    if is_unicode:
+        result = [arg.decode('utf-8') for arg in result]
+    return result
+
+class ExitException(Exception):
+    ''' Raised by MyArgumentParser instead of sys.exit() and writing to stderr '''
+
+class MyArgumentParser(argparse.ArgumentParser):
+    def exit(self, status=0, message=None):
+        pass
+
+    def _print_message(self, message, file=None):
+        raise ExitException(message)
+
 
 COMMAND_METHOD_ATTR = '_method_commands'
 IS_RETURNED_BY_EXEC_TASK_ATTR = '_is_returned_by_exec_task'
@@ -15,22 +38,30 @@ def _add_command_handler(command, method, dct):
         raise CommandConflict(command, method, conflicting_method)
     dct[command] = method
 
-def command_names(*names):
+def command_names(names, arg_parser=None):
     ''' This decorates all functions that will be registered as commands. 
     names is a list of command names '''
-
+    if isinstance(names, basestring):
+        names = [names]
     def decorator(func, add_command_attr=True):
         if add_command_attr:
             setattr(func, COMMAND_METHOD_ATTR, names)
         @functools.wraps(func)
         def wrapper(self, command, args, message, plugin):
             error_happened = False
-            try:
-                result = func(self, command, args, message, plugin)
-            except Exception, ex:
-                result = '%s exception happened while executing "%s" with args "%s", traceback saved into error log.' % (ex.__class__.__name__, command, args)
-                plugin.logger.error("While executing command '%s' with args '%s'", command, args, exc_info=True)
-                error_happened = True
+            if arg_parser is not None:
+                try:
+                    args = arg_parser.parse_args(shlex_split(args))
+                except Exception, ex:
+                    result = ex.args[0].strip()
+                    error_happened = True
+            if not error_happened:
+                try:
+                    result = func(self, command, args, message, plugin)
+                except Exception, ex:
+                    result = '%s exception happened while executing "%s" with args "%s", traceback saved into error log.' % (ex.__class__.__name__, command, args)
+                    plugin.logger.error("While executing command '%s' with args '%s'", command, args, exc_info=True)
+                    error_happened = True
             if isinstance(result, basestring):
                 plugin.send_simple_reply(message, result, include_nick=error_happened)
             elif isinstance(result, plugins.ThreadedPluginTask):
