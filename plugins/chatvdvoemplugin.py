@@ -36,6 +36,7 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
         self.commutated = set()
         self.last_message_time = time.time()
         self.room_jid = None
+        self.non_stop = False
 
     def chatvdvoem_runner(self):
         self.chatvdvoem_instance = chatvdvoem.Chatter(chatkey.get_chat_key)
@@ -91,7 +92,7 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
 
     def idle_proc(self):
         current_time = time.time()
-        if current_time - self.last_message_time > 60 * 10:
+        if current_time - self.last_message_time > 60 * 10 or self.non_stop:
             if self.room_jid:
                 self.instantiate_chatvdvoem_instance(self.room_jid)
 

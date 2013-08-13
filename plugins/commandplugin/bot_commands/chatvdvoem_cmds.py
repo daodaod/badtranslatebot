@@ -31,3 +31,24 @@ class ChatvdvoemCommands(Command):
     @command_names([u'commutation', u'связи'])
     def commutation(self, command, args, message, plugin):
         return ','.join(self.chatvdvoem_plugin.commutated)
+
+    kill_parser = MyArgumentParser('kill')
+    kill_parser.add_argument('-s', '--stop', action='store_true', help='Set non-stop to false')
+
+    @command_names(['kill', u'отключи', u'отключись', u'уходи'], arg_parser=kill_parser)
+    def kill(self, command, args, message, plugin):
+        if args.stop:
+            self.set_nonstop(False)
+        self.chatvdvoem_plugin.kill_chatvdvoem()
+        return "Killed" + (' and stopped' if args.stop else '')
+
+    def set_nonstop(self, non_stop):
+        self.chatvdvoem_plugin.non_stop = non_stop
+
+    nonstop_parser = MyArgumentParser('nonstop')
+    nonstop_parser.add_argument('state', choices=['on', 'off'], nargs='?', default='on')
+    @command_names(['nonstop', u'нонстоп'], arg_parser=nonstop_parser)
+    def nonstop(self, command, args, message, plugin):
+        non_stop = (args.state == 'on')
+        self.set_nonstop(non_stop)
+        return "Non-stop is %r" % non_stop
