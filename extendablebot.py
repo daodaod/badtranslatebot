@@ -31,6 +31,8 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         management_plugin = plugins.commandplugin.CommandPlugin(management_config)
         management_plugin.add_bot_instance(self)
         management_command = plugins.commandplugin.bot_commands.management_cmds.ManagementCommands(management_config)
+        # TODO: How do we fix this? It looks ugly!
+        management_command.add_bot_instance(self)
         management_plugin.register_command(management_command)
         self.compulsory_plugins = [("management", management_plugin)]
 

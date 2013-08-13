@@ -48,27 +48,31 @@ def command_names(names, arg_parser=None):
             setattr(func, COMMAND_METHOD_ATTR, names)
         @functools.wraps(func)
         def wrapper(self, command, args, message, plugin):
-            error_happened = False
-            if arg_parser is not None:
-                try:
-                    args = arg_parser.parse_args(shlex_split(args))
-                except Exception, ex:
-                    result = ex.args[0].strip()
-                    error_happened = True
-            if not error_happened:
-                try:
-                    result = func(self, command, args, message, plugin)
-                except Exception, ex:
-                    result = '%s exception happened while executing "%s" with args "%s", traceback saved into error log.' % (ex.__class__.__name__, command, args)
-                    plugin.logger.error("While executing command '%s' with args '%s'", command, args, exc_info=True)
-                    error_happened = True
-            if isinstance(result, basestring):
-                plugin.send_simple_reply(message, result, include_nick=error_happened)
-            elif isinstance(result, plugins.ThreadedPluginTask):
-                if getattr(result, IS_RETURNED_BY_EXEC_TASK_ATTR, False):
-                    result.function_to_execute = decorator(result.function_to_execute, add_command_attr=False)
-                if not plugin.add_task(result):
-                    plugin.send_simple_reply("Failed to add your task to queue because of limitations.", include_nick=True)
+            try:
+                error_happened = False
+                if arg_parser is not None:
+                    try:
+                        args = arg_parser.parse_args(shlex_split(args))
+                    except Exception, ex:
+                        result = ex.args[0].strip()
+                        error_happened = True
+                if not error_happened:
+                    try:
+                        result = func(self, command, args, message, plugin)
+                    except Exception, ex:
+                        result = '%s exception happened while executing "%s" with args "%s", traceback saved into error log.' % (ex.__class__.__name__, command, args)
+                        plugin.logger.error("While executing command '%s' with args '%s'", command, args, exc_info=True)
+                        error_happened = True
+                if isinstance(result, basestring):
+                    plugin.send_simple_reply(message, result, include_nick=error_happened)
+                elif isinstance(result, plugins.ThreadedPluginTask):
+                    if getattr(result, IS_RETURNED_BY_EXEC_TASK_ATTR, False):
+                        result.function_to_execute = decorator(result.function_to_execute, add_command_attr=False)
+                    if not plugin.add_task(result):
+                        plugin.send_simple_reply(message, "Failed to add your task to queue because of limitations.", include_nick=True)
+            except Exception, ex:
+                plugin.send_simple_reply(message, "%s exception happened in command wrapper. Traceback saved to error log" % ex.__class__.__name__)
+                raise
         return wrapper
     return decorator
 

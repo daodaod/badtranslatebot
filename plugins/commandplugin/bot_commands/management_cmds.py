@@ -23,11 +23,10 @@ class ManagementCommands(Command):
 
     @command_names('plugins')
     @admin_only
-    @exec_as_task
     def list_plugins(self, command, args, message, plugin):
         disabled_str = lambda plug:('' if plug.enabled else ' (disabled)')
         return ', '.join((name + disabled_str(plugin_obj))
-                         for name, plugin_obj in plugin.bot_instance.plugins.iteritems())
+                         for name, plugin_obj in self.bot_instance.plugins.iteritems())
 
     @command_names(['reload', 'reloadall'])
     @admin_only

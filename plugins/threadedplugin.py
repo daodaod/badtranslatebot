@@ -29,7 +29,7 @@ class ThreadedPluginTask(threadpool.Task):
 class ThreadedPlugin(plugins.JabberPlugin):
     ''' This class is a convenient base for all plugins which expose long-running tasks functionality
     max_tasks is the number of simultaneously running tasks. '''
-    max_tasks = plugins.make_config_property('max_tasks', int, default=lambda:-1)
+    max_tasks = plugins.make_config_property('max_tasks', lambda self, val:int(val), default=lambda:-1)
 
     def __init__(self, config_section, logger=None):
         super(ThreadedPlugin, self).__init__(config_section, logger=logger)

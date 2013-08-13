@@ -60,7 +60,6 @@ class CommandPlugin(plugins.ThreadedPlugin):
         command = split_text[1][len(self.command_prefix):].lower()
         command_handler = self.command_bindings.get(command, None)
         left_side = split_text[0]
-
         if left_side.strip():
             my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
             parts = plugins.utils.split_by_nickname(left_side, my_nickname, make_lower=True)
