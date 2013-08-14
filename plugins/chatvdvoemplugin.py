@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from plugins.bot_module import make_config_property
 
 KLASS = 'ChatvdvoemPlugin'
 
@@ -29,6 +30,7 @@ class PluggedChatter(chatvdvoem.Chatter):
 
 
 class ChatvdvoemPlugin(plugins.ThreadedPlugin):
+    idle_timeout = make_config_property('idle_timeout', lambda self, val:int(val), default=lambda:60 * 60)
 
     def __init__(self, config_section):
         super(ChatvdvoemPlugin, self).__init__(config_section)
@@ -92,10 +94,9 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
 
     def idle_proc(self):
         current_time = time.time()
-        if current_time - self.last_message_time > 60 * 10 or self.non_stop:
+        if current_time - self.last_message_time > self.idle_timeout or self.non_stop:
             if self.room_jid:
                 self.instantiate_chatvdvoem_instance(self.room_jid)
-
 
     @plugins.register_plugin_method
     def process_text_message(self, message, has_subject, is_from_me, is_groupchat):
