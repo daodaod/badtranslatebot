@@ -200,7 +200,7 @@ if __name__ == '__main__':
     parser.add_argument("--logconfig", help="Logging config file",
                         default='config/logging.conf')
     if DEBUG:
-        namespace = parser.parse_args(['config/alice.config'])
+        namespace = parser.parse_args(['config/john.config'])
     else:
         namespace = parser.parse_args()
     config = configobj.ConfigObj(namespace.config)
