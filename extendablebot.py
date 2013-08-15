@@ -42,6 +42,13 @@ class ExtendableJabberBot(persistentbot.PersistentJabberBot):
         except etype:
             self.logger.error("Exception happened while serving threadpool task", exc_info=1)
 
+    def serve_exc_handler(self, etype, value, tb):
+        try:
+            raise etype, value, tb
+        except etype:
+            self.logger.error("Exception happened while serve forever", exc_info=1)
+
+
     def handle_plugins(self, methodname, *args, **kwargs):
         to_process = [self.compulsory_plugins, self.plugins.iteritems()]
         stanza_processed = False
@@ -217,5 +224,4 @@ if __name__ == '__main__':
     logging.config.fileConfig(buf, disable_existing_loggers=False)
     bot = ExtendableJabberBot(login, password, config, res=resource)
 
-    bot.serve_really_forever(traceback.print_exception)
-
+    bot.serve_really_forever(bot.serve_exc_handler)

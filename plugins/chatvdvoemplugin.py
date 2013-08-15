@@ -119,7 +119,9 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
         text = message.getBody()
         my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
         if not self.is_commutated_to_me(message, my_nickname):
+            print text
             text = plugins.utils.is_message_for_me(text, my_nickname, startswith_nick=True)
+            print text
         if not text:
             return
         self.add_pending_message(text, from_.getStripped())

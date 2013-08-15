@@ -6,6 +6,9 @@ Created on 08.08.2013
 KLASS = 'ManagementCommands'
 
 from bot_command import Command, command_names, admin_only, exec_as_task
+import sys
+import subprocess
+import tempfile
 
 class ManagementCommands(Command):
     @command_names(['enable', 'disable'])
@@ -32,14 +35,14 @@ class ManagementCommands(Command):
     @admin_only
     def reload_plugins(self, command, args, message, plugin):
         if command == 'reloadall':
-            plugin_names = plugin.bot_instance.plugins.iterkeys()
+            plugin_names = self.bot_instance.plugins.iterkeys()
         else:
-            if args not in plugin.bot_instance.plugins:
+            if args not in self.bot_instance.plugins:
                 return 'No such plugin: "%s"' % args
             plugin_names = [args]
-        plugin.bot_instance.reload_config()
+        self.bot_instance.reload_config()
         for name in plugin_names:
-            plugin.bot_instance.reload_plugin(name)
+            self.bot_instance.reload_plugin(name)
         return "Reloaded"
 
     @command_names('reloadconf')
@@ -47,3 +50,12 @@ class ManagementCommands(Command):
     def reload_config(self, command, args, message, plugin):
         self.bot_instance.reload_and_apply_config()
         return "Reloaded config"
+
+    @command_names(['exit'])
+    @admin_only
+    def bot_exit(self, command, args, message, plugin):
+        my_nickname = self.bot_instance.get_my_room_nickname(message.getFrom().getStripped())
+        if args != my_nickname:
+            return "Type %s %s to %s." % (command, my_nickname, command)
+        self.bot_instance.quit()
+        sys.exit()

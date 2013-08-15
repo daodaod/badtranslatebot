@@ -32,7 +32,7 @@ def remove_nickname_from_list(parts, nickname, limit=None):
         if part.lower() == nickname_lower:
             parts[i] = ' '
             parts[i - 1] = parts[i + 1] = ''
-    return ''.join(parts).strip()
+    return ''.join(parts)
 
 def remove_nickname(text, nickname, startswith_nick=False):
     limit = 3 if startswith_nick else None
