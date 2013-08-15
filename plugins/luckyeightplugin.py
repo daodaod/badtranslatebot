@@ -20,9 +20,11 @@ class LuckyEightPlugin(plugins.ThreadedPlugin):
         from_ = message.getFrom()
         text = message.getBody()
         my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
+        if not text.rstrip().endswith('??'):
+            return
         text = self.preprocess_text(text)
         new_text = plugins.utils.is_message_for_me(text, my_nickname, startswith_nick=True)
-        if not new_text or new_text == text:
+        if not new_text:
             return
         separators = [u' или ']
         for separator in separators:

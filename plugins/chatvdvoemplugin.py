@@ -32,7 +32,7 @@ class PluggedChatter(chatvdvoem.Chatter):
 
 class ChatvdvoemPlugin(plugins.ThreadedPlugin):
     idle_timeout = make_config_property('idle_timeout', lambda self, val:int(val), default=lambda:60 * 60)
-    idle_commutated = make_config_property('idle_commutated', default=lambda:[])
+    idle_commutated = make_config_property('idle_commutated', lambda self, val:set(val), default=lambda:set())
     def __init__(self, config_section):
         super(ChatvdvoemPlugin, self).__init__(config_section)
         self.chatvdvoem_instance = None
@@ -73,7 +73,6 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
         message.setType('groupchat')
         commutated_tag = message.addChild('chatvdvoem')
         commutated_tag.setAttr('event', event)
-        print self.commutated
         if event == 'message':
             for nick in self.commutated:
                 child = commutated_tag.addChild('nickname')
@@ -120,8 +119,7 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
         text = message.getBody()
         my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
         if not self.is_commutated_to_me(message, my_nickname):
-            text_parts = plugins.utils.split_by_nickname(text, my_nickname)
-            if len(text_parts) <= 3 or text_parts[1].lower() != my_nickname.lower():
-                return
-            text = ''.join(text_parts[3:])
+            text = plugins.utils.is_message_for_me(text, my_nickname, startswith_nick=True)
+        if not text:
+            return
         self.add_pending_message(text, from_.getStripped())

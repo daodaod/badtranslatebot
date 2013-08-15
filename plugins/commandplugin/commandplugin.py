@@ -63,7 +63,9 @@ class CommandPlugin(plugins.ThreadedPlugin):
         if left_side.strip():
             my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
             parts = plugins.utils.split_by_nickname(left_side, my_nickname, make_lower=True)
-            if len(parts) > 3 or my_nickname.lower() not in parts:
+            if my_nickname.lower() not in parts:
+                return
+            if not left_side.startswith('+') and len(parts) > 3:
                 return
         args = ''.join(split_text[2:]).strip()
         result = command_handler(command, args, message=message, plugin=self)

@@ -32,7 +32,7 @@ class ChatvdvoemCommands(Command):
     def commutation(self, command, args, message, plugin):
         commutated = self.chatvdvoem_plugin.commutated
         if not commutated:
-            return u"Я не связан ни с кем"
+            return u"Я не связан ни с кем."
         return u"Я связан с " + ','.join(self.chatvdvoem_plugin.commutated)
 
     kill_parser = MyArgumentParser('kill')
