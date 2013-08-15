@@ -31,7 +31,7 @@ class ManagementCommands(Command):
     @command_names(['reload', 'reloadall'])
     @admin_only
     def reload_plugins(self, command, args, message, plugin):
-        if command == 'realodall':
+        if command == 'reloadall':
             plugin_names = plugin.bot_instance.plugins.iterkeys()
         else:
             if args not in plugin.bot_instance.plugins:
