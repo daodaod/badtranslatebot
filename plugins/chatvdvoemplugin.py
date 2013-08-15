@@ -8,6 +8,7 @@ import xmpp
 import plugins.utils
 import sys
 import time
+import itertools
 import threading
 sys.path.append('../chatvdvoem-client')
 import chatvdvoem
@@ -31,7 +32,7 @@ class PluggedChatter(chatvdvoem.Chatter):
 
 class ChatvdvoemPlugin(plugins.ThreadedPlugin):
     idle_timeout = make_config_property('idle_timeout', lambda self, val:int(val), default=lambda:60 * 60)
-
+    idle_commutated = make_config_property('idle_commutated', default=lambda:[])
     def __init__(self, config_section):
         super(ChatvdvoemPlugin, self).__init__(config_section)
         self.chatvdvoem_instance = None
@@ -39,6 +40,7 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
         self.last_message_time = time.time()
         self.room_jid = None
         self.non_stop = False
+        self.idle_state = False
 
     def chatvdvoem_runner(self):
         self.chatvdvoem_instance = chatvdvoem.Chatter(chatkey.get_chat_key)
@@ -71,6 +73,7 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
         message.setType('groupchat')
         commutated_tag = message.addChild('chatvdvoem')
         commutated_tag.setAttr('event', event)
+        print self.commutated
         if event == 'message':
             for nick in self.commutated:
                 child = commutated_tag.addChild('nickname')
@@ -94,7 +97,10 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
 
     def idle_proc(self):
         current_time = time.time()
-        if current_time - self.last_message_time > self.idle_timeout or self.non_stop:
+        if current_time - self.last_message_time > self.idle_timeout:
+            self.idle_state = True
+            self.commutated = self.idle_commutated
+        if self.idle_state or self.non_stop:
             if self.room_jid:
                 self.instantiate_chatvdvoem_instance(self.room_jid)
 
@@ -102,12 +108,15 @@ class ChatvdvoemPlugin(plugins.ThreadedPlugin):
     def process_text_message(self, message, has_subject, is_from_me, is_groupchat):
         if has_subject or (not is_groupchat):
             return
-        self.last_message_time = time.time()
         if is_from_me:
             return
         assert isinstance(message, xmpp.Message)
         from_ = message.getFrom()
         self.room_jid = from_.getStripped()
+        # We should react on messages from non-commutated, i.e. non-bots
+        if message.getTag('chatvdvoem') is None:
+            self.last_message_time = time.time()
+            self.idle_state = False
         text = message.getBody()
         my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
         if not self.is_commutated_to_me(message, my_nickname):

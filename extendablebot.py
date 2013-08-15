@@ -200,10 +200,10 @@ if __name__ == '__main__':
     parser.add_argument("--logconfig", help="Logging config file",
                         default='config/logging.conf')
     if DEBUG:
-        namespace = parser.parse_args(['config/john.config'])
+        namespace = parser.parse_args(['config/alice.config'])
     else:
         namespace = parser.parse_args()
-    config = configobj.ConfigObj(namespace.config)
+    config = configobj.ConfigObj(namespace.config, encoding='utf-8')
     acc_info = config['jabber_account']
     login = acc_info['jid']
     password = acc_info['password']

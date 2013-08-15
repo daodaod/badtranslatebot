@@ -30,7 +30,10 @@ class ChatvdvoemCommands(Command):
 
     @command_names([u'commutation', u'связи'])
     def commutation(self, command, args, message, plugin):
-        return ','.join(self.chatvdvoem_plugin.commutated)
+        commutated = self.chatvdvoem_plugin.commutated
+        if not commutated:
+            return u"Я не связан ни с кем"
+        return u"Я связан с " + ','.join(self.chatvdvoem_plugin.commutated)
 
     kill_parser = MyArgumentParser('kill')
     kill_parser.add_argument('-s', '--stop', action='store_true', help='Set non-stop to false')
