@@ -1,14 +1,11 @@
-'''
-Created on 08.08.2013
+# -*- coding: utf-8 -*-
 
-@author: H
-'''
 KLASS = 'ManagementCommands'
 
-from bot_command import Command, command_names, admin_only, exec_as_task
+from bot_command import Command, command_names, admin_only
 import sys
-import subprocess
-import tempfile
+from bot_command import MyArgumentParser
+
 
 class ManagementCommands(Command):
     @command_names(['enable', 'disable'])
@@ -51,11 +48,24 @@ class ManagementCommands(Command):
         self.bot_instance.reload_and_apply_config()
         return "Reloaded config"
 
-    @command_names(['exit'])
+    exit_parser = MyArgumentParser('exit')
+    exit_parser.add_argument('-f', '--force', help='Force exit', action='store_true')
+    exit_parser.add_argument('nickname', help='Bot nickname', nargs='?')
+    @command_names(['exit'], arg_parser=exit_parser)
     @admin_only
     def bot_exit(self, command, args, message, plugin):
         my_nickname = self.bot_instance.get_my_room_nickname(message.getFrom().getStripped())
-        if args != my_nickname:
+        if args.nickname != my_nickname and not args.force:
             return "Type %s %s to %s." % (command, my_nickname, command)
         self.bot_instance.quit()
         sys.exit()
+
+    @command_names(['say', u'скажи'])
+    @admin_only
+    def say(self, command, args, message, plugin):
+        if message.getType() != 'chat':
+            return args
+        reply_message = message.buildReply(args)
+        reply_message.setType('groupchat')
+        reply_message.setTo(message.getFrom().getStripped())
+        self.bot_instance.send_message(reply_message)
