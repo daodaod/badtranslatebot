@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import traceback
 
 KLASS = 'ManagementCommands'
 
@@ -69,3 +70,16 @@ class ManagementCommands(Command):
         reply_message.setType('groupchat')
         reply_message.setTo(message.getFrom().getStripped())
         self.bot_instance.send_message(reply_message)
+
+    @command_names(['python'])
+    @admin_only
+    def exec_python(self, command, args, message, plugin):
+        ns = {}
+        try:
+            exec args in ns
+        except Exception, ex:
+            return traceback.format_exc()
+        if 'result' in ns:
+            return str(ns['result'])
+        return "Executed"
+

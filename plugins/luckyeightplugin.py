@@ -29,7 +29,6 @@ class LuckyEightPlugin(plugins.ThreadedPlugin):
         separators = [u' или ']
         for separator in separators:
             choices = [s.strip() for s in re.split(re.escape(separator), new_text, flags=re.I | re.U) if s.strip()]
-            print choices
             if len(choices) != 1:
                 break
         else:
