@@ -1,22 +1,32 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+
 import plugins
 import bot_commands
 import re
-import threadpool
+
 
 class CommandPlugin(plugins.ThreadedPlugin):
-    def __init__(self, max_tasks, command_prefix='!'):
-        self.command_prefix = command_prefix
+    command_prefix = plugins.make_config_property('command_prefix')
+    commands = plugins.make_config_property('commands', default=lambda:[])
+    def __init__(self, config_section, logger=None):
+        super(CommandPlugin, self).__init__(config_section, logger=logger)
         self.command_bindings = {}
         self.commands_list = []
         self.command_re = re.compile(r'(%s\w+)' % re.escape(self.command_prefix), flags=re.UNICODE)
-        super(CommandPlugin, self).__init__(max_tasks=max_tasks)
+
+    def on_add_bot_instance(self, bot_instance):
+        for command_name in self.commands:
+            self.register_command(self.bot_instance.commands[command_name])
+
+    def on_remove_bot_instance(self, bot_instance):
+        for command in self.commands[:]:
+            self.unregister_command(command)
 
     def register_command(self, command):
         ''' Register command in a CommandPlugin. Won't do anything if there are conflicts '''
-
         added_commands = []
         has_failed = False
         try:
@@ -35,38 +45,32 @@ class CommandPlugin(plugins.ThreadedPlugin):
 
     def unregister_command(self, command):
         ''' Unregisters a command. Raises ValueError if this command was not previously registered '''
-
         self.commands_list.remove(command)
         for command_name, method in command.get_registered_commands().iteritems():
             self.command_bindings.pop(command_name)
 
     @plugins.register_plugin_method
-    def process_text_message(self, message, bot_instance):
-        if message.getSubject() is not None:
-            return
+    def process_text_message(self, message, has_subject, is_from_me, **kwargs):
+        if is_from_me or has_subject: return
         from_ = message.getFrom()
-        if bot_instance.is_my_jid(from_):
-            return
         text = message.getBody()
         split_text = self.command_re.split(text, maxsplit=1)
         if len(split_text) == 1:  # there is even no command prefix
             return
         command = split_text[1][len(self.command_prefix):].lower()
-        method = self.command_bindings.get(command, None)
-        if method is None:
-            return
-        left_side = split_text[0].strip().lower()
-        if left_side:
-            my_nickname = bot_instance.get_my_room_nickname(from_.getStripped())
-            if my_nickname.lower() not in re.split(r'(\w+)', left_side, flags=re.UNICODE):
+        command_handler = self.command_bindings.get(command, None)
+        left_side = split_text[0]
+        if left_side.strip():
+            my_nickname = self.bot_instance.get_my_room_nickname(from_.getStripped())
+            parts = plugins.utils.split_by_nickname(left_side, my_nickname, make_lower=True)
+            if my_nickname.lower() not in parts:
+                return
+            if not left_side.startswith('+') and len(parts) > 3:
                 return
         args = ''.join(split_text[2:]).strip()
-        result = method(command, args, message=message, plugin=self, bot_instance=bot_instance)
-        if isinstance(result, basestring):
-            if result.strip():
-                bot_instance.send_simple_reply(message, result)
-        elif isinstance(result, threadpool.Task):
-            self.add_task(result, bot_instance)
+        result = command_handler(command, args, message=message, plugin=self)
+        if result is not None:
+            self.logger.warn('Command_handler for cmd "%s" with args "%s" returned non-None result, possible loss of data, result is %r', command, args, result)
         raise plugins.StanzaProcessed
 
 if __name__ == '__main__':

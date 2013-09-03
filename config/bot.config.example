@@ -1,0 +1,32 @@
+[jabber_account]
+jid = example@example.org
+password = passw0rd
+resource = res
+
+[logging]
+  folder=/path/to/log/dir
+
+[management]
+  command_prefix = '%'
+  allowed_affiliations = ['owner', 'admin']
+  # Trailing comma is important if there is only one item
+  admins = admin@example.org,
+
+[rooms]
+   [[room1]]
+   jid = room@conference.example.org
+   nickname = Botty
+   
+[plugins]
+  pool_workers = 5
+  [[chatlog]]
+    module = plugins.chatlogplugin
+    [[[config]]]
+      folder = /home/user/trash/chatlogs
+      
+  [[translator]]
+    module = plugins.translationplugin
+    [[[config]]]
+      max_tasks = 4
+      translations = 2
+      reply_probability = 1

@@ -54,13 +54,29 @@ class PoolWorker(StoppableThread):
                             self.exception_handler(*sys.exc_info())
 
 class TaskPool(object):
-    def __init__(self, workers_num, max_task_num, daemon_threads=True, exception_handler=None):
+    def __init__(self, workers_num=0, daemon_threads=True, exception_handler=None):
         super(TaskPool, self).__init__()
-        self.task_queue = Queue.Queue(maxsize=max_task_num)
+        self.task_queue = Queue.Queue()
         self.exception_handler = exception_handler
-        self.workers = [PoolWorker(self.task_queue, self.exception_handler) for _ in xrange(workers_num)]
-        [worker.setDaemon(daemon_threads) for worker in self.workers]
-        [worker.start() for worker in self.workers]
+        self.daemon_threads = daemon_threads
+        self.workers = []
+        self.resize_workers(workers_num)
+
+    def resize_workers(self, workers_num):
+        if workers_num < 0:
+            raise ValueError("Workers number can't be negative!")
+        self.task_queue.maxsize = max(1, workers_num)  # Don't allow unlimited queues
+        if len(self.workers) < workers_num:
+            new_workers_num = workers_num - len(self.workers)
+            new_workers = [PoolWorker(self.task_queue, self.exception_handler) for _ in xrange(new_workers_num)]
+            [worker.setDaemon(self.daemon_threads) for worker in new_workers]
+            [worker.start() for worker in new_workers]
+            self.workers.extend(new_workers)
+        elif len(self.workers) > workers_num:
+            to_delete_workers = len(self.workers) - workers_num
+            self.workers, deleted_workers = self.workers[:-to_delete_workers], self.workers[-to_delete_workers:]
+            [worker.stop() for worker in deleted_workers]
+
 
     def add_task(self, task):
         '''Adds the task to the queue. Return True if succeeded, otherwise False'''
@@ -81,7 +97,7 @@ class TaskPool(object):
 
 
 if __name__ == '__main__':
-    pool = TaskPool(workers_num=5, max_task_num=5, daemon_threads=True)
+    pool = TaskPool(workers_num=5, daemon_threads=True)
     import time
     class SleepTask(Task):
         def __init__(self, to_sleep, message):
@@ -91,10 +107,12 @@ if __name__ == '__main__':
         def execute(self):
             time.sleep(self.to_sleep)
             print "Slept %r seconds and the message is '%s'" % (self.to_sleep, self.message)
-
-    pool.add_task(SleepTask(2, "First one"))
-    pool.add_task(SleepTask(1, "Second one, but first two"))
-    pool.add_task(SleepTask(5, "Sleep sort!"))
+    pool.resize_workers(0)
+    print pool.add_task(SleepTask(2, "First one"))
+    print pool.add_task(SleepTask(1, "Second one, but first two"))
+    print pool.add_task(SleepTask(5, "Sleep sort!"))
+    pool.resize_workers(2)
+    print pool.workers
     pool.add_task(SleepTask(3, "Cool."))
-    pool.stop()
+    # pool.stop()
     pool.join()

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+KLASS = 'ChatlogPlugin'
+
 import plugins
 import os
 import time
@@ -60,12 +62,14 @@ def convert_timestamp(timestamp):
 
 class ChatlogPlugin(plugins.JabberPlugin):
     ''' Performs MUC logging in html format'''
+    always_handle = False
 
-    def __init__(self, folder):
-        super(ChatlogPlugin, self).__init__()
-        self.folder = folder
+    def __init__(self, config):
+        super(ChatlogPlugin, self).__init__(config)
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
+
+    folder = plugins.make_config_property('folder')
 
     def get_current_filename(self, subfolder):
         return os.path.join(subfolder, time.strftime('%Y_%m_%d.html'))
@@ -73,7 +77,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
     def write_header(self, f):
         f.write('''<html><head><meta http-equiv="content-type" content="text/html; charset=UTF-8"></head><body>''')
 
-    def write_message(self, f, message, bot_instance):
+    def write_message(self, f, message):
         assert isinstance(message, xmpp.Message)
         if self.is_bad_stanza(message):
             self.write_error(f, message)
@@ -103,7 +107,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
         f.write(message_template.format(color=color, timestamp=timestamp, nick=nick, text=text,
                                         text_color=text_color, chat_state=chat_state).encode('utf-8'))
 
-    def write_presence(self, f, presence, bot_instance):
+    def write_presence(self, f, presence):
         assert isinstance(presence, xmpp.Presence)
         if self.is_bad_stanza(presence):
             self.write_error(f, presence)
@@ -122,7 +126,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
             else:
                 msg_html.append('has left')
         else:
-            if bot_instance.get_room_user(conference, nick) is not None:
+            if self.bot_instance.get_room_user(conference, nick) is not None:
                 msg_html.append('has changed status')
             else:
                 msg_html.append('has joined the room')
@@ -159,7 +163,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
         return filename
 
     @plugins.register_plugin_method
-    def process_message(self, message, bot_instance):
+    def process_message(self, message):
         if message.getError() is not None:
             self.process_error(message)
         if self.is_stanza_from_nowhere(message):
@@ -167,7 +171,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
         from_ = get_safe_filename(get_message_sender_folder(message))
         filename = self.roll_file(from_)
         with open(filename, 'ab') as f:
-            self.write_message(f, message, bot_instance)
+            self.write_message(f, message)
 
     def is_bad_stanza(self, stanza):
         return stanza.getError() is not None or self.is_stanza_from_nowhere(stanza)
@@ -176,7 +180,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
         return not stanza.getFrom() or not stanza.getFrom().getStripped()
 
     @plugins.register_plugin_method
-    def process_presence(self, presence, bot_instance):
+    def process_presence(self, presence):
         if self.is_bad_stanza(presence):
             self.process_error(presence)
         if self.is_stanza_from_nowhere(presence):
@@ -186,7 +190,7 @@ class ChatlogPlugin(plugins.JabberPlugin):
         from_ = get_safe_filename(presence.getFrom().getStripped() + '.chat')
         filename = self.roll_file(from_)
         with open(filename, 'ab') as f:
-            self.write_presence(f, presence, bot_instance)
+            self.write_presence(f, presence)
 
     def process_error(self, stanza):
         filename = self.roll_file('errors')
