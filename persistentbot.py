@@ -25,7 +25,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
         self.rooms = {}
         handlers = [('message', self.callback_message),
                     ('presence', self.callback_presence),
-                    ('iq', self.callback_iq)]
+                ]
         # Since xmpppy dispatcher.send is not thread safe
         # we will lock send_stanza method to linearize all conn.send methods
         self.send_lock = threading.Lock()
