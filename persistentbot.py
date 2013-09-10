@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
 import jabberbot
 import time
 import xmpp
@@ -19,8 +20,7 @@ class PersistentJabberBot(jabberbot.JabberBot):
     PING_FREQUENCY = 30
     PING_TIMEOUT = 10
 
-    def __init__(self, username, password, res=None, debug=False,
-                 pool_workers=1, privatedomain=False, acceptownmsgs=False):
+    def __init__(self, username, password, res=None, debug=False, privatedomain=False, acceptownmsgs=False):
         self.stopped = False
         self.rooms = {}
         handlers = [('message', self.callback_message),
@@ -35,10 +35,17 @@ class PersistentJabberBot(jabberbot.JabberBot):
                          handlers=handlers)
 
     def callback_presence(self, conn, presence):
-        assert isinstance(presence, xmpp.Presence)
+        """
+        Presence handler.
+
+        :param conn: Connection dispatcher
+        :type conn: xmpp.dispatcher.Dispatcher
+        :param presence: XMPP presence
+        :type presence: xmpp.Presence
+        """
         self.process_presence(presence)
         if presence.getType() == 'error':
-            self.process_error_presence(presence)
+            self.process_presence_error(presence)
         else:
             if xmpp.NS_MUC_USER in presence.getProperties():
                 self.process_room_presence(presence)
@@ -46,7 +53,14 @@ class PersistentJabberBot(jabberbot.JabberBot):
         super(PersistentJabberBot, self).callback_presence(conn, presence)
 
     def callback_message(self, conn, message):
-        assert isinstance(message, xmpp.Message)
+        """
+        Message handler.
+
+        :param conn: Connection dispatcher
+        :type conn: xmpp.dispatcher.Dispatcher
+        :param message: XMPP message
+        :type message: xmpp.Message
+        """
         self.process_message(message)
         if message.getError() is not None:
             self.process_message_error(message)
@@ -58,25 +72,31 @@ class PersistentJabberBot(jabberbot.JabberBot):
             is_groupchat = message.getType() == 'groupchat'
             self.process_text_message(message, has_subject=has_subject, is_from_me=is_from_me, is_groupchat=is_groupchat)
 
-    def callback_iq(self, conn, iq):
-        # TODO: Add some pretty iq response
-        pass
-
     def process_message(self, message):
-        ''' This routine handles all messages, received by bot.'''
-        pass
+        """
+        This routine handles all xmpp.Message stanzas received by client.
 
-    def process_message_error(self, message):
-        ''' This routine handles all message stanzas with error tag set.'''
-        pass
-
-    def process_delayed_message(self, message):
-        ''' This routine handles delayed messages. Those are usually sent as history,
-        when bot enters the room.'''
+        :param message: xmpp message stanza
+        :type message: xmpp.Message
+        """
         pass
 
     def process_text_message(self, message, has_subject, is_from_me, is_groupchat) :
-        ''' This routine handles all messages with body tag.'''
+        """
+        This routine handles all messages with body tag.
+
+        :param message: xmpp message stanza.
+        :type message: xmpp.Message
+
+        :param has_subject: True if there is a subject tag in the message, such message may be received when someone sets the topic in MUC chat.
+        :type has_subject: bool
+
+        :param is_from_me: True if this message was sent by the client. It's just the result of `is_my_jid(message.getFrom())` call.
+        :type is_from_me: bool
+
+        :param is_groupchat: True if message type is `groupchat`
+        :type is_groupchat: bool
+        """
         pass
 
     def process_presence(self, presence):
@@ -150,6 +170,12 @@ class PersistentJabberBot(jabberbot.JabberBot):
         return room.users.get(nickname)
 
     def get_room_user_by_jid(self, jid):
+        """
+
+        :type jid xmpp.JID
+        :param jid:
+        :return:
+        """
         return self.get_room_user(jid.getStripped(), jid.getResource())
 
     def build_room_presence(self, room, username, password=None, type_=None):
@@ -297,16 +323,13 @@ class PersistentJabberBot(jabberbot.JabberBot):
                 self.disconnect()
             self.on_exit()
 
-    def on_exit(self, wait_for_threadpool=False):
-        self.threadpool.stop()
-        if wait_for_threadpool:
-            self.threadpool.join()
-
+    def on_exit(self):
+        pass
 
 if __name__ == '__main__':
     import configobj
 
-    config = configobj.ConfigObj('config/john.config')
+    config = configobj.ConfigObj('config/alice.config')
     acc_info = config['jabber_account']
     login = acc_info['jid']
     password = acc_info['password']

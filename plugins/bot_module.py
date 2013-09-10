@@ -1,5 +1,6 @@
 
 import logging
+
 __sentinel = object()
 def make_config_property(field, getter=None, setter=None, default=__sentinel):
     def fget(self):
@@ -20,6 +21,7 @@ def make_config_property(field, getter=None, setter=None, default=__sentinel):
 
 
 class BotModule(object):
+
     def __init__(self, config_section, logger=None):
         self.logger = logger or logging.getLogger(__name__)
         self.apply_config(config_section)
